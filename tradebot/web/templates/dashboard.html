@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - TradeBot{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-speedometer2 me-2"></i>Dashboard</h2>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card stat-card info">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-1 text-muted">Portfolio Waarde</h6>
+        <h3 class="card-title mb-0">${{ "%.2f"|format(total_value) }}</h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card {% if total_pnl >= 0 %}buy{% else %}sell{% endif %}">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-1 text-muted">Totaal P&L</h6>
+        <h3 class="card-title mb-0 {% if total_pnl >= 0 %}pnl-positive{% else %}pnl-negative{% endif %}">
+          ${{ "%+.2f"|format(total_pnl) }}
+        </h3>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card {% if bot_running %}buy{% else %}sell{% endif %}">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-1 text-muted">Bot Status</h6>
+        <h4 class="card-title mb-0">{% if bot_running %}Actief{% else %}Gestopt{% endif %}</h4>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card stat-card warn">
+      <div class="card-body">
+        <h6 class="card-subtitle mb-1 text-muted">Totaal Trades</h6>
+        <h4 class="card-title mb-0">{{ trade_count }}</h4>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-bank me-1"></i> Waarde per Platform</div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0">
+          <thead><tr><th>Platform</th><th>Status</th><th class="text-end">Waarde</th></tr></thead>
+          <tbody>
+          {% for p in platforms %}
+            <tr>
+              <td>{{ p.display_name }}</td>
+              <td>
+                {% if p.connected %}<span class="badge badge-connected">Verbonden</span>
+                {% elif p.configured %}<span class="badge bg-warning text-dark">Geconfigureerd</span>
+                {% else %}<span class="badge bg-secondary">Niet geconfigureerd</span>{% endif %}
+              </td>
+              <td class="text-end fw-bold">${{ "%.2f"|format(p.total_value_usd) }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr class="table-secondary"><td colspan="2" class="fw-bold">Totaal</td><td class="text-end fw-bold">${{ "%.2f"|format(total_value) }}</td></tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-trophy me-1"></i> Top 5 Posities</div>
+      <div class="card-body p-0">
+        <table class="table table-sm table-tight mb-0">
+          <thead><tr><th>Symbool</th><th>Platform</th><th class="text-end">Waarde</th><th class="text-end">P&L</th></tr></thead>
+          <tbody>
+          {% for pos in top_positions %}
+            <tr>
+              <td class="fw-bold">{{ pos.symbol }}</td>
+              <td><small class="text-muted">{{ pos.platform }}</small></td>
+              <td class="text-end">${{ "%.2f"|format(pos.value) }}</td>
+              <td class="text-end {% if pos.pnl >= 0 %}pnl-positive{% else %}pnl-negative{% endif %}">
+                ${{ "%+.2f"|format(pos.pnl) }} <small>({{ "%+.1f"|format(pos.pnl_pct) }}%)</small>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-bar-chart me-1"></i> Rendement</div>
+      <div class="card-body">
+        <table class="table table-sm table-tight mb-0">
+          <tr><td>Vandaag</td><td class="text-end fw-bold {% if yield_stats.today >= 0 %}pnl-positive{% else %}pnl-negative{% endif %}">${{ "%+.2f"|format(yield_stats.today) }}</td></tr>
+          <tr><td>Deze Week</td><td class="text-end fw-bold {% if yield_stats.week >= 0 %}pnl-positive{% else %}pnl-negative{% endif %}">${{ "%+.2f"|format(yield_stats.week) }}</td></tr>
+          <tr><td>Deze Maand</td><td class="text-end fw-bold {% if yield_stats.month >= 0 %}pnl-positive{% else %}pnl-negative{% endif %}">${{ "%+.2f"|format(yield_stats.month) }}</td></tr>
+          <tr><td>Totaal</td><td class="text-end fw-bold {% if yield_stats.all_time >= 0 %}pnl-positive{% else %}pnl-negative{% endif %}">${{ "%+.2f"|format(yield_stats.all_time) }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-graph-up me-1"></i> Trading Stats</div>
+      <div class="card-body">
+        <table class="table table-sm table-tight mb-0">
+          <tr><td>Win Rate</td><td class="text-end fw-bold">{{ "%.1f"|format(stats.win_rate) }}%</td></tr>
+          <tr><td>Wins / Losses</td><td class="text-end fw-bold">{{ stats.wins }} / {{ stats.losses }}</td></tr>
+          <tr><td>Gem. Win</td><td class="text-end fw-bold pnl-positive">${{ "%.2f"|format(stats.avg_win) }}</td></tr>
+          <tr><td>Gem. Loss</td><td class="text-end fw-bold pnl-negative">${{ "%.2f"|format(stats.avg_loss) }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header"><i class="bi bi-info-circle me-1"></i> Systeem</div>
+      <div class="card-body">
+        <table class="table table-sm table-tight mb-0">
+          <tr><td>Mode</td><td class="text-end fw-bold">{{ mode|upper }}</td></tr>
+          <tr><td>AI Learning</td><td class="text-end">{% if ai_enabled %}<span class="badge badge-ai">AAN</span>{% else %}<span class="badge bg-secondary">UIT</span>{% endif %}</td></tr>
+          <tr><td>Platforms</td><td class="text-end fw-bold">{{ connected_count }} / {{ total_platforms }}</td></tr>
+          <tr><td>Open Posities</td><td class="text-end fw-bold">{{ open_positions }}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-header"><i class="bi bi-play-circle me-1"></i> Bot Control</div>
+  <div class="card-body">
+    {% if not bot_running %}
+    <form method="post" action="/bot/start">
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label class="form-label">Symbolen (SYMBOOL:EXCHANGE)</label>
+          <input type="text" name="symbols" class="form-control" placeholder="AAPL:revolut_stocks,BTC:revolut_crypto" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Timeframe</label>
+          <select name="timeframe" class="form-select">
+            <option value="1h" selected>1h</option>
+            <option value="1d">1d</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button type="submit" class="btn btn-success w-100"><i class="bi bi-play-fill me-1"></i>Start</button>
+        </div>
+      </div>
+    </form>
+    {% else %}
+    <form method="post" action="/bot/stop">
+      <button type="submit" class="btn btn-danger"><i class="bi bi-stop-fill me-1"></i>Stop Bot</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header"><i class="bi bi-clock-history me-1"></i> Recente Trades</div>
+  <div class="card-body p-0">
+    {% if recent_trades %}
+    <table class="table table-hover table-sm mb-0">
+      <thead><tr><th>Tijd</th><th>Symbool</th><th>Side</th><th>Aantal</th><th>Prijs</th></tr></thead>
+      <tbody>
+      {% for t in recent_trades|reverse %}
+        <tr>
+          <td>{{ t.timestamp }}</td>
+          <td>{{ t.symbol }}</td>
+          <td><span class="badge {% if t.side == 'buy' %}bg-success{% else %}bg-danger{% endif %}">{{ t.side|upper }}</span></td>
+          <td>{{ "%.4f"|format(t.quantity) }}</td>
+          <td>${{ "%.2f"|format(t.price) }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted p-3 mb-0">Nog geen trades. Start de bot om te beginnen.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>setTimeout(() => location.reload(), 30000);</script>
+{% endblock %}

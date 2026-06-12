@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Instellingen - TradeBot{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-gear me-2"></i>Instellingen</h2>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">Exchange Verbindingen</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr>
+            <td>Revolut (Stocks, ETFs, Bonds, Crypto, CFDs)</td>
+            <td>{% if exchanges_configured.get("revolut") %}<span class="badge bg-success">Geconfigureerd</span>{% else %}<span class="badge bg-secondary">Niet geconfigureerd</span>{% endif %}</td>
+          </tr>
+          <tr>
+            <td>Bitvavo (Dutch Crypto)</td>
+            <td>{% if exchanges_configured.get("bitvavo") %}<span class="badge bg-success">Geconfigureerd</span>{% else %}<span class="badge bg-secondary">Niet geconfigureerd</span>{% endif %}</td>
+          </tr>
+          <tr>
+            <td>DEGIRO (Dutch/EU Stocks)</td>
+            <td>{% if exchanges_configured.get("degiro") %}<span class="badge bg-success">Geconfigureerd</span>{% else %}<span class="badge bg-secondary">Niet geconfigureerd</span>{% endif %}</td>
+          </tr>
+          <tr>
+            <td>Binance (Global Crypto)</td>
+            <td>{% if exchanges_configured.get("binance") %}<span class="badge bg-success">Geconfigureerd</span>{% else %}<span class="badge bg-secondary">Niet geconfigureerd</span>{% endif %}</td>
+          </tr>
+          <tr>
+            <td>Alpaca (US Stocks)</td>
+            <td>{% if exchanges_configured.get("alpaca") %}<span class="badge bg-success">Geconfigureerd</span>{% else %}<span class="badge bg-secondary">Niet geconfigureerd</span>{% endif %}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card h-100">
+      <div class="card-header">Risk Management</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><td>Trading Mode</td><td class="fw-bold">{{ settings.mode.value|upper }}</td></tr>
+          <tr><td>Max Position Size</td><td class="fw-bold">{{ settings.max_position_size_pct }}%</td></tr>
+          <tr><td>Stop Loss</td><td class="fw-bold">{{ settings.stop_loss_pct }}%</td></tr>
+          <tr><td>Take Profit</td><td class="fw-bold">{{ settings.take_profit_pct }}%</td></tr>
+        </table>
+        <small class="text-muted mt-2 d-block">Wijzig via Render Environment Variables.</small>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header">Beschikbare Strategieën</div>
+      <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+          <thead><tr><th>Naam</th><th>Beschrijving</th></tr></thead>
+          <tbody>
+            <tr><td>sma_crossover</td><td>SMA/EMA crossover trend volgen</td></tr>
+            <tr><td>rsi</td><td>RSI overbought/oversold reversal</td></tr>
+            <tr><td>macd</td><td>MACD histogram crossover</td></tr>
+            <tr><td>bollinger</td><td>Bollinger Bands mean-reversion</td></tr>
+            <tr><td><span class="badge badge-ai">ai_learner</span></td><td>DQN reinforcement learning (zelf-lerend)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

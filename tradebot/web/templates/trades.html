@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Trades - TradeBot{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-list-check me-2"></i>Trade Geschiedenis</h2>
+
+<div class="card">
+  <div class="card-body p-0">
+    {% if trades %}
+    <table class="table table-hover table-sm mb-0">
+      <thead><tr><th>Tijd</th><th>Symbool</th><th>Side</th><th>Aantal</th><th>Prijs</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for t in trades|reverse %}
+        <tr>
+          <td>{{ t.timestamp }}</td>
+          <td>{{ t.symbol }}</td>
+          <td><span class="badge {% if t.side == 'buy' %}bg-success{% else %}bg-danger{% endif %}">{{ t.side|upper }}</span></td>
+          <td>{{ "%.6f"|format(t.quantity) }}</td>
+          <td>${{ "%.2f"|format(t.price) }}</td>
+          <td>{{ t.status }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p class="text-muted p-3 mb-0">Nog geen trades geregistreerd.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

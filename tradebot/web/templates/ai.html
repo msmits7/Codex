@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}AI Learning - TradeBot{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-robot me-2"></i>AI Learning</h2>
+
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">AI Status</div>
+      <div class="card-body">
+        <table class="table table-sm mb-3">
+          <tr><td>Episodes</td><td class="fw-bold">{{ stats.episodes }}</td></tr>
+          <tr><td>Epsilon</td><td class="fw-bold">{{ stats.epsilon }}</td></tr>
+          <tr>
+            <td>Online Learning</td>
+            <td>{% if training_enabled %}<span class="badge bg-success">AAN</span>{% else %}<span class="badge bg-secondary">UIT</span>{% endif %}</td>
+          </tr>
+        </table>
+        <p class="text-muted small">De AI strategie leert van marktdata en verbetert over tijd.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6">
+    <div class="card">
+      <div class="card-header">Training Log</div>
+      <div class="card-body">
+        {% if training_log %}
+        <ul class="list-unstyled mb-0">
+          {% for log in training_log[-5:] %}
+          <li class="small">{{ log.timestamp }}: {{ log.message }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted mb-0">Nog geen training uitgevoerd.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

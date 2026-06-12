@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Test Fase - TradeBot{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-clipboard-check me-2"></i>Test Fase</h2>
+<p class="text-muted mb-4">Test je strategieën met fictief geld op echte marktdata.</p>
+
+<div class="card mb-4">
+  <div class="card-header">Start Test</div>
+  <div class="card-body">
+    <form method="post" action="/test-phase/start">
+      <div class="row g-2">
+        <div class="col-md-4">
+          <label class="form-label">Symbolen</label>
+          <input type="text" name="symbols" class="form-control" placeholder="BTC:revolut_crypto,AAPL:revolut_stocks" required>
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Startkapitaal</label>
+          <input type="number" name="balance" class="form-control" value="10000">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label">Mode</label>
+          <select name="mode" class="form-select">
+            <option value="live">Live Test</option>
+            <option value="backtest">Backtest</option>
+          </select>
+        </div>
+        <div class="col-md-2 d-flex align-items-end">
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-play-fill me-1"></i>Start</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if results %}
+<div class="card">
+  <div class="card-header">Resultaten</div>
+  <div class="card-body">
+    <div class="row">
+      <div class="col-md-3"><strong>Startkapitaal:</strong> ${{ results.starting_balance }}</div>
+      <div class="col-md-3"><strong>Huidige Waarde:</strong> ${{ results.current_value }}</div>
+      <div class="col-md-3"><strong>P&L:</strong> ${{ results.pnl }}</div>
+      <div class="col-md-3"><strong>Win Rate:</strong> {{ results.win_rate }}%</div>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-1"></i> Start een test om resultaten te zien.
+</div>
+{% endif %}
+{% endblock %}
