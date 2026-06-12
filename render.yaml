@@ -1,0 +1,23 @@
+# Render.com deployment configuration
+# See: https://render.com/docs/blueprint-spec
+
+services:
+  - type: web
+    name: tradebot
+    runtime: python
+    region: frankfurt
+    plan: free  # of starter/standard voor productie
+    branch: claude/build-trading-bot-vBkrZ
+    buildCommand: pip install -e .
+    startCommand: gunicorn --bind 0.0.0.0:$PORT tradebot.web.app:app
+    healthCheckPath: /api/status
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: TRADEBOT_MODE
+        value: paper
+      # Voeg je API keys toe via Render Dashboard (niet in dit bestand!)
+      - key: REVOLUT_ACCESS_TOKEN
+        sync: false  # Handmatig instellen in dashboard
+      - key: REVOLUT_SANDBOX
+        value: "true"

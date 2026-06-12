@@ -1,0 +1,24 @@
+# Core
+flask>=2.3.0
+gunicorn>=21.0.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+
+# Trading
+ccxt>=4.0.0
+alpaca-trade-api>=3.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+ta>=0.10.0
+
+# CLI & Output
+click>=8.1.0
+rich>=13.0.0
+
+# Optional: EU markets
+# degiro-connector>=2.0.0
+# ib_insync>=0.9.0
+# python-bitvavo-api>=1.0.0
+
+# Optional: Database
+# SQLAlchemy>=2.0.0
