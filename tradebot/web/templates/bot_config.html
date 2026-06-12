@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Bot Configureren - TradeBot{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-robot me-2"></i>Bot Configureren</h2>
+<p class="text-muted mb-4">Stel je budget en risicoprofiel in. De bot handelt dan automatisch voor je.</p>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="post">
+          <div class="mb-4">
+            <label class="form-label fw-bold">Trading Budget</label>
+            <div class="input-group input-group-lg">
+              <span class="input-group-text">€</span>
+              <input type="number" name="budget" class="form-control" value="{{ budget }}" min="10" step="10" required>
+            </div>
+            <small class="text-muted">Dit is het maximale bedrag dat de bot mag gebruiken voor trades.</small>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-bold">Platform</label>
+            <select name="platform" class="form-select form-select-lg">
+              {% for p in platforms %}
+              <option value="{{ p }}" {% if p == platform %}selected{% endif %}>{{ p|title }}</option>
+              {% endfor %}
+            </select>
+            <small class="text-muted">Op welk platform moet de bot handelen?</small>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-bold">Risico Niveau</label>
+            <div class="row g-3">
+              <div class="col-md-4">
+                <input type="radio" class="btn-check" name="risk_level" id="risk_low" value="low" {% if risk_level == 'low' %}checked{% endif %}>
+                <label class="btn btn-outline-success w-100 py-3" for="risk_low">
+                  <i class="bi bi-shield-check d-block display-6"></i>
+                  <strong>Laag</strong>
+                  <small class="d-block text-muted">Stabiele ETFs, blue chips</small>
+                </label>
+              </div>
+              <div class="col-md-4">
+                <input type="radio" class="btn-check" name="risk_level" id="risk_medium" value="medium" {% if risk_level == 'medium' %}checked{% endif %}>
+                <label class="btn btn-outline-warning w-100 py-3" for="risk_medium">
+                  <i class="bi bi-speedometer d-block display-6"></i>
+                  <strong>Medium</strong>
+                  <small class="d-block text-muted">Mix van aandelen en crypto</small>
+                </label>
+              </div>
+              <div class="col-md-4">
+                <input type="radio" class="btn-check" name="risk_level" id="risk_high" value="high" {% if risk_level == 'high' %}checked{% endif %}>
+                <label class="btn btn-outline-danger w-100 py-3" for="risk_high">
+                  <i class="bi bi-lightning d-block display-6"></i>
+                  <strong>Hoog</strong>
+                  <small class="d-block text-muted">Agressief, meer crypto</small>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <div class="form-check form-switch">
+              <input class="form-check-input" type="checkbox" name="autonomous" id="autonomous" {% if autonomous %}checked{% endif %}>
+              <label class="form-check-label fw-bold" for="autonomous">Volledig Autonoom</label>
+            </div>
+            <small class="text-muted">Aan: Bot beslist zelf wat te kopen/verkopen. Uit: Bot vraagt bevestiging.</small>
+          </div>
+
+          <hr>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="bi bi-save me-1"></i>Opslaan
+            </button>
+            <button type="submit" formaction="/bot/start" class="btn btn-success btn-lg">
+              <i class="bi bi-play-fill me-1"></i>Opslaan & Start Bot
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card bg-light">
+      <div class="card-header">Hoe werkt het?</div>
+      <div class="card-body">
+        <ol class="mb-0">
+          <li class="mb-2">Stel je budget in (bijv. €500)</li>
+          <li class="mb-2">Kies je risicoprofiel</li>
+          <li class="mb-2">Verbind je platform (Revolut, etc.)</li>
+          <li class="mb-2">Start de bot</li>
+          <li>De bot analyseert de markt en handelt automatisch!</li>
+        </ol>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">AI Strategieën</div>
+      <div class="card-body">
+        <p class="small text-muted mb-2">De bot gebruikt deze strategieën:</p>
+        <ul class="small mb-0">
+          <li><strong>RSI</strong> - Oversold/overbought detectie</li>
+          <li><strong>SMA Crossover</strong> - Trend volgen</li>
+          <li><strong>MACD</strong> - Momentum signalen</li>
+          <li><strong>AI/ML</strong> - Zelf-lerend netwerk</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

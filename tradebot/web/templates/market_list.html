@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}{{ asset_type|title }} - {{ platform_name }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/market">Markt</a></li>
+    <li class="breadcrumb-item"><a href="/market">{{ platform_name }}</a></li>
+    <li class="breadcrumb-item active">{{ asset_type|title }}</li>
+  </ol>
+</nav>
+
+<h2 class="mb-4">
+  {% if asset_type == "stocks" %}<i class="bi bi-building me-2"></i>Aandelen
+  {% elif asset_type == "etfs" %}<i class="bi bi-pie-chart me-2"></i>ETFs
+  {% elif asset_type == "crypto" %}<i class="bi bi-currency-bitcoin me-2"></i>Crypto
+  {% elif asset_type == "bonds" %}<i class="bi bi-file-earmark-text me-2"></i>Obligaties
+  {% endif %}
+  <small class="text-muted">op {{ platform_name }}</small>
+</h2>
+
+<div class="card">
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Asset</th>
+          <th class="text-end">Prijs</th>
+          <th class="text-end">24h</th>
+          <th class="text-center">Fractioneel</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for asset in assets %}
+        <tr>
+          <td>
+            <strong>{{ asset.symbol }}</strong>
+            <small class="text-muted d-block">{{ asset.name }}</small>
+          </td>
+          <td class="text-end fw-bold">€{{ "%.2f"|format(asset.price) }}</td>
+          <td class="text-end {% if asset.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+            {{ "%+.1f"|format(asset.change) }}%
+          </td>
+          <td class="text-center">
+            {% if asset.fractional %}
+              <span class="badge bg-success"><i class="bi bi-check"></i> Ja</span>
+            {% else %}
+              <span class="badge bg-secondary">Nee</span>
+            {% endif %}
+          </td>
+          <td class="text-end">
+            <a href="/trade/{{ platform }}/{{ asset.symbol }}" class="btn btn-primary btn-sm">
+              <i class="bi bi-cart-plus me-1"></i>Trade
+            </a>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="alert alert-info mt-4">
+  <i class="bi bi-info-circle me-1"></i>
+  <strong>Fractioneel traden:</strong> Bij assets met fractioneel trading kun je ook gedeeltes kopen, bijv. €50 aan Apple in plaats van een hele share.
+</div>
+{% endblock %}

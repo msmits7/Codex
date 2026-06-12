@@ -2,60 +2,76 @@
 {% block title %}Platforms - TradeBot{% endblock %}
 
 {% block content %}
-<h2 class="mb-4"><i class="bi bi-plug me-2"></i>Platform Verbindingen</h2>
-<p class="text-muted mb-4">Configureer API credentials voor je trading platforms.</p>
+<h2 class="mb-4"><i class="bi bi-plug me-2"></i>Platforms Verbinden</h2>
+<p class="text-muted mb-4">Verbind je trading accounts. De bot kan dan automatisch voor je handelen.</p>
 
-<div class="row g-3">
-  {% for name, info in platform_info.items() %}
+<div class="row g-4">
+{% for name, info in platform_info.items() %}
   <div class="col-md-4">
-    <div class="card">
+    <div class="card h-100">
       <div class="card-header d-flex justify-content-between align-items-center">
-        <span>{{ info.display }}</span>
+        <span class="fw-bold">{{ info.display }}</span>
         {% if info.configured %}
-          <span class="badge bg-success">Geconfigureerd</span>
+          <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Verbonden</span>
         {% else %}
-          <span class="badge bg-secondary">Niet geconfigureerd</span>
+          <span class="badge bg-secondary">Niet verbonden</span>
         {% endif %}
       </div>
       <div class="card-body">
-        <p class="text-muted small mb-2">{{ info.description }}</p>
-        <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modal-{{ name }}">
-          <i class="bi bi-key me-1"></i>{% if info.configured %}Wijzigen{% else %}Configureren{% endif %}
-        </button>
+        <p class="text-muted">{{ info.description }}</p>
+
+        <ul class="list-unstyled mb-3">
+          {% for feature in info.features %}
+          <li><i class="bi bi-check text-success me-1"></i>{{ feature }}</li>
+          {% endfor %}
+        </ul>
+
+        {% if info.configured %}
+          <button class="btn btn-outline-success w-100" disabled>
+            <i class="bi bi-check-circle me-1"></i>Verbonden
+          </button>
+        {% else %}
+          <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#modal-{{ name }}">
+            <i class="bi bi-link-45deg me-1"></i>Verbinden
+          </button>
+        {% endif %}
       </div>
     </div>
   </div>
-  {% endfor %}
+{% endfor %}
 </div>
 
 <div class="alert alert-info mt-4">
   <i class="bi bi-info-circle me-1"></i>
-  <strong>Tip:</strong> Je kunt API keys ook instellen via Render Environment Variables voor betere beveiliging.
+  <strong>Tip:</strong> Stel je API keys in via Render Environment Variables voor betere beveiliging.
+  <ul class="mb-0 mt-2">
+    <li><code>REVOLUT_ACCESS_TOKEN</code> - Voor Revolut</li>
+    <li><code>BITVAVO_API_KEY</code> en <code>BITVAVO_SECRET</code> - Voor Bitvavo</li>
+    <li><code>DEGIRO_USERNAME</code> en <code>DEGIRO_PASSWORD</code> - Voor DEGIRO</li>
+  </ul>
 </div>
 
 {% for name, info in platform_info.items() %}
 <div class="modal fade" id="modal-{{ name }}" tabindex="-1">
   <div class="modal-dialog">
     <div class="modal-content">
-      <form method="post" action="/platforms/save">
-        <div class="modal-header">
-          <h5 class="modal-title">{{ info.display }} Credentials</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <input type="hidden" name="platform" value="{{ name }}">
-          {% for field in info.fields %}
-          <div class="mb-3">
-            <label class="form-label">{{ field.label }}</label>
-            <input type="{{ field.type }}" name="{{ field.env_key }}" class="form-control" placeholder="{{ field.placeholder }}">
-          </div>
-          {% endfor %}
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuleren</button>
-          <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Opslaan</button>
-        </div>
-      </form>
+      <div class="modal-header">
+        <h5 class="modal-title">{{ info.display }} Verbinden</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p>Om {{ info.display }} te verbinden, voeg je API keys toe als Environment Variables in Render:</p>
+        <ol>
+          <li>Ga naar je Render Dashboard</li>
+          <li>Klik op je TradeBot service</li>
+          <li>Ga naar <strong>Environment</strong></li>
+          <li>Voeg de benodigde variabelen toe</li>
+          <li>Klik <strong>Save Changes</strong></li>
+        </ol>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Sluiten</button>
+      </div>
     </div>
   </div>
 </div>

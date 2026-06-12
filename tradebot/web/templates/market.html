@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Markt - TradeBot{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-graph-up me-2"></i>Markt Overzicht</h2>
+<p class="text-muted mb-4">Bekijk alle beschikbare assets per platform. Klik om te traden.</p>
+
+<div class="row g-4">
+{% for platform_id, platform in platforms.items() %}
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-bank me-2"></i>{{ platform.name }}</h5>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          {% if platform.stocks %}
+          <div class="col-md-6 col-lg-3">
+            <a href="/market/{{ platform_id }}/stocks" class="card text-decoration-none h-100">
+              <div class="card-body text-center">
+                <i class="bi bi-building display-5 text-primary"></i>
+                <h6 class="mt-2 mb-0">Aandelen</h6>
+                <small class="text-muted">{{ platform.stocks|length }} beschikbaar</small>
+              </div>
+            </a>
+          </div>
+          {% endif %}
+
+          {% if platform.etfs %}
+          <div class="col-md-6 col-lg-3">
+            <a href="/market/{{ platform_id }}/etfs" class="card text-decoration-none h-100">
+              <div class="card-body text-center">
+                <i class="bi bi-pie-chart display-5 text-success"></i>
+                <h6 class="mt-2 mb-0">ETFs</h6>
+                <small class="text-muted">{{ platform.etfs|length }} beschikbaar</small>
+              </div>
+            </a>
+          </div>
+          {% endif %}
+
+          {% if platform.crypto %}
+          <div class="col-md-6 col-lg-3">
+            <a href="/market/{{ platform_id }}/crypto" class="card text-decoration-none h-100">
+              <div class="card-body text-center">
+                <i class="bi bi-currency-bitcoin display-5 text-warning"></i>
+                <h6 class="mt-2 mb-0">Crypto</h6>
+                <small class="text-muted">{{ platform.crypto|length }} beschikbaar</small>
+              </div>
+            </a>
+          </div>
+          {% endif %}
+
+          {% if platform.bonds %}
+          <div class="col-md-6 col-lg-3">
+            <a href="/market/{{ platform_id }}/bonds" class="card text-decoration-none h-100">
+              <div class="card-body text-center">
+                <i class="bi bi-file-earmark-text display-5 text-info"></i>
+                <h6 class="mt-2 mb-0">Obligaties</h6>
+                <small class="text-muted">{{ platform.bonds|length }} beschikbaar</small>
+              </div>
+            </a>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

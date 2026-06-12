@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% block title %}Trade {{ asset.symbol }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb">
+    <li class="breadcrumb-item"><a href="/market">Markt</a></li>
+    <li class="breadcrumb-item active">{{ asset.symbol }}</li>
+  </ol>
+</nav>
+
+<div class="row">
+  <div class="col-md-8">
+    <div class="card mb-4">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start">
+          <div>
+            <h2 class="mb-0">{{ asset.symbol }}</h2>
+            <p class="text-muted mb-0">{{ asset.name }}</p>
+          </div>
+          <div class="text-end">
+            <h2 class="mb-0 {% if asset.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+              €{{ "%.2f"|format(asset.price) }}
+            </h2>
+            <span class="{% if asset.change >= 0 %}text-success{% else %}text-danger{% endif %}">
+              {{ "%+.1f"|format(asset.change) }}% vandaag
+            </span>
+          </div>
+        </div>
+
+        {% if asset.fractional %}
+        <div class="alert alert-success mt-3 mb-0">
+          <i class="bi bi-check-circle me-1"></i>
+          <strong>Fractioneel trading beschikbaar</strong> - Je kunt elk bedrag investeren, ook minder dan 1 share.
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Price chart placeholder -->
+    <div class="card">
+      <div class="card-header">Prijsgeschiedenis</div>
+      <div class="card-body text-center py-5">
+        <i class="bi bi-graph-up display-1 text-muted"></i>
+        <p class="text-muted mt-2">Grafiek wordt geladen...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4">
+    <div class="card">
+      <div class="card-header">Order Plaatsen</div>
+      <div class="card-body">
+        <form method="post">
+          <div class="btn-group w-100 mb-3" role="group">
+            <input type="radio" class="btn-check" name="action" id="buy" value="buy" checked>
+            <label class="btn btn-outline-success" for="buy"><i class="bi bi-arrow-down-circle me-1"></i>Kopen</label>
+
+            <input type="radio" class="btn-check" name="action" id="sell" value="sell">
+            <label class="btn btn-outline-danger" for="sell"><i class="bi bi-arrow-up-circle me-1"></i>Verkopen</label>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Bedrag (€)</label>
+            <input type="number" name="amount" class="form-control form-control-lg" placeholder="100" min="1" step="0.01" required>
+            <small class="text-muted">
+              {% if asset.fractional %}
+              Je krijgt ~{{ "%.4f"|format(100 / asset.price) }} {{ asset.symbol }} voor €100
+              {% else %}
+              Minimaal €{{ "%.2f"|format(asset.price) }} voor 1 share
+              {% endif %}
+            </small>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Order Type</label>
+            <select name="order_type" class="form-select">
+              <option value="market">Market Order (direct)</option>
+              <option value="limit">Limit Order</option>
+            </select>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100 btn-lg">
+            <i class="bi bi-check-circle me-1"></i>Bevestig Order
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div class="card mt-3">
+      <div class="card-header">Asset Info</div>
+      <div class="card-body">
+        <table class="table table-sm mb-0">
+          <tr><td>Platform</td><td class="text-end fw-bold">{{ platform|title }}</td></tr>
+          <tr><td>Prijs</td><td class="text-end fw-bold">€{{ "%.2f"|format(asset.price) }}</td></tr>
+          <tr><td>24h Verandering</td><td class="text-end {% if asset.change >= 0 %}text-success{% else %}text-danger{% endif %}">{{ "%+.1f"|format(asset.change) }}%</td></tr>
+          <tr><td>Fractioneel</td><td class="text-end">{% if asset.fractional %}<span class="text-success">Ja</span>{% else %}Nee{% endif %}</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
