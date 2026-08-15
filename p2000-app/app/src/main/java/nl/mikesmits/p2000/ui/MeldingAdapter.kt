@@ -13,7 +13,9 @@ import nl.mikesmits.p2000.databinding.ItemMeldingBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-class MeldingAdapter : ListAdapter<Melding, MeldingAdapter.Holder>(Diff) {
+class MeldingAdapter(
+    private val onClick: (Melding) -> Unit = {}
+) : ListAdapter<Melding, MeldingAdapter.Holder>(Diff) {
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
@@ -35,6 +37,7 @@ class MeldingAdapter : ListAdapter<Melding, MeldingAdapter.Holder>(Diff) {
         holder.binding.textLocation.text = m.locationLabel
         holder.binding.textTime.text = timeFormat.format(m.time)
         holder.binding.typeIndicator.setBackgroundColor(ContextCompat.getColor(ctx, colorFor(m.type)))
+        holder.binding.root.setOnClickListener { onClick(m) }
     }
 
     companion object {

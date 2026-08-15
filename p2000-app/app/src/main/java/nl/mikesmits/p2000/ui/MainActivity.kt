@@ -35,8 +35,13 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
     private val viewModel: MainViewModel by viewModels()
-    private val adapter = MeldingAdapter()
+    private val adapter = MeldingAdapter { melding -> focusOnMap(melding) }
     private val markers = mutableListOf<Marker>()
+    private val markerByGuid = mutableMapOf<String, Marker>()
+
+    /** True on foldables/tablets (sw600dp layout): list and map are shown side by side. */
+    private val isDualPane: Boolean
+        get() = binding.bottomNav.visibility == View.GONE
     private var pendingRadiusKm: Int? = null
 
     private val locationPermissionLauncher =
@@ -124,9 +129,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun focusOnMap(melding: Melding) {
+        val lat = melding.lat ?: run {
+            Toast.makeText(this, R.string.no_coordinates, Toast.LENGTH_SHORT).show()
+            return
+        }
+        val lon = melding.lon ?: return
+        if (!isDualPane) {
+            binding.bottomNav.selectedItemId = R.id.nav_map
+        }
+        binding.map.controller.animateTo(GeoPoint(lat, lon), 14.0, 600L)
+        markerByGuid[melding.guid]?.showInfoWindow()
+    }
+
     private fun updateMapMarkers(list: List<Melding>) {
         markers.forEach { binding.map.overlays.remove(it) }
         markers.clear()
+        markerByGuid.clear()
         for (m in list) {
             val lat = m.lat ?: continue
             val lon = m.lon ?: continue
@@ -139,6 +158,7 @@ class MainActivity : AppCompatActivity() {
                 icon = ContextCompat.getDrawable(this@MainActivity, iconFor(m.type))
             }
             markers.add(marker)
+            markerByGuid[m.guid] = marker
             binding.map.overlays.add(marker)
         }
         binding.map.invalidate()

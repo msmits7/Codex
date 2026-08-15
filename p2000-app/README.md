@@ -9,6 +9,7 @@ Android-app die live P2000-meldingen (ambulance, brandweer, politie, traumaheli,
 - **Kaartweergave** — OpenStreetMap (osmdroid, geen API-key nodig) met gekleurde markers per type. Adressen worden gegeocodeerd via de gratis PDOK Locatieserver (postcode → straat → plaats, met cache).
 - **Locatiefilter** — vrije tekstfilter op plaats, straat, postcode of regio.
 - **Straalfilter** — toon alleen meldingen binnen X km (1–100) van je huidige locatie (vraagt locatietoestemming).
+- **Foldables & tablets** — op schermen vanaf 600dp breed (bijv. een opengeklapte Galaxy Z Fold of Pixel Fold) schakelt de app naar een two-pane weergave: meldingenlijst links, kaart rechts. Tik op een melding om de kaart erheen te laten springen. Bij open-/dichtklappen wisselt de layout automatisch mee.
 
 ## Installatie
 
