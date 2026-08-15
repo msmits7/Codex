@@ -9,7 +9,8 @@ Android-app die live P2000-meldingen (ambulance, brandweer, politie, traumaheli,
 - **Kaartweergave** — OpenStreetMap (osmdroid, geen API-key nodig) met gekleurde markers per type. Adressen worden gegeocodeerd via de gratis PDOK Locatieserver (postcode → straat → plaats, met cache).
 - **Locatiefilter** — vrije tekstfilter op plaats, straat, postcode of regio.
 - **Straalfilter** — toon alleen meldingen binnen X km (1–100) van je huidige locatie (vraagt locatietoestemming).
-- **Foldables & tablets** — op schermen vanaf 600dp breed (bijv. een opengeklapte Galaxy Z Fold of Pixel Fold) schakelt de app naar een two-pane weergave: meldingenlijst links, kaart rechts. Tik op een melding om de kaart erheen te laten springen. Bij open-/dichtklappen wisselt de layout automatisch mee.
+- **Foldables & tablets** — zodra het venster minstens 600dp breed is (opengeklapte Galaxy Z Fold 8 / Pixel Fold, tablets, of een telefoon in landscape) schakelt de app naar een two-pane weergave: meldingenlijst links, kaart rechts. Tik op een melding om de kaart erheen te laten springen. Bij open-/dichtklappen of split-screen wisselt de layout automatisch mee.
+- **Alle beeldverhoudingen** — geen vaste orientatie en `resizeableActivity`, dus geen letterboxing: het langgerekte coverscherm (21:9+) en het bijna vierkante binnenscherm van de Galaxy Z Fold 8 worden volledig gebruikt, inclusief doorlopen langs de camera-cutout (`shortEdges`).
 
 ## Installatie
 

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- On displays with a camera cutout (Fold cover- en binnenscherm) laat de app
+         de inhoud doorlopen langs de korte randen in plaats van een zwarte balk. -->
+    <style name="Theme.P2000" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#B3261E</item>
+        <item name="colorSecondary">#1565C0</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+    </style>
+</resources>

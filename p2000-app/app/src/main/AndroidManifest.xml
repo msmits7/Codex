@@ -12,6 +12,13 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.P2000">
+        <!-- Tall cover screens (21:9 and beyond, e.g. Galaxy Z Fold cover display):
+             never letterbox, use the full height. Resizeable apps on API 26+ already
+             support any aspect ratio; the meta-data covers legacy ratio checks. -->
+        <meta-data
+            android:name="android.max_aspect"
+            android:value="4.0" />
+
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"
