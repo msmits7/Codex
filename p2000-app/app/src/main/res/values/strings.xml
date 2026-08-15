@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">P2000 Live</string>
+    <string name="loading">Laden…</string>
+    <string name="filters">Filters</string>
+    <string name="filter_none">Geen filters actief</string>
+    <string name="filter_location_hint">Locatie (plaats, straat of postcode)</string>
+    <string name="filter_location_helper">Alleen meldingen die deze tekst bevatten</string>
+    <string name="filter_radius_title">Straal vanaf mijn locatie</string>
+    <string name="filter_clear">Filters wissen</string>
+    <string name="radius_off">Uit</string>
+    <string name="radius_km">%d km</string>
+    <string name="nav_list">Meldingen</string>
+    <string name="nav_map">Kaart</string>
+    <string name="empty_list">Geen meldingen voor deze filters</string>
+    <string name="location_denied">Locatietoestemming geweigerd – straalfilter uitgeschakeld</string>
+    <string name="location_unavailable">Locatie niet beschikbaar – zet locatie aan en probeer opnieuw</string>
+</resources>

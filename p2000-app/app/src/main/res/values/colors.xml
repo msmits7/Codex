@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="type_ambulance">#E6A700</color>
+    <color name="type_brandweer">#D32F2F</color>
+    <color name="type_politie">#1565C0</color>
+    <color name="type_trauma">#7B1FA2</color>
+    <color name="type_water">#00838F</color>
+    <color name="type_overig">#616161</color>
+</resources>
