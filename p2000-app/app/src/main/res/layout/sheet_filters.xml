@@ -42,12 +42,14 @@
         android:textAppearance="?attr/textAppearanceBodyMedium"
         android:textColor="?android:attr/textColorSecondary" />
 
-    <SeekBar
-        android:id="@+id/seekRadius"
+    <com.google.android.material.slider.Slider
+        android:id="@+id/sliderRadius"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:max="100" />
+        android:valueFrom="0"
+        android:valueTo="100"
+        android:stepSize="1" />
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonClearFilters"

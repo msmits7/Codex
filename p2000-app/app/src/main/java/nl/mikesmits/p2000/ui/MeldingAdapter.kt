@@ -36,7 +36,9 @@ class MeldingAdapter(
         holder.binding.textDescription.text = m.description.ifEmpty { m.rawTitle }
         holder.binding.textLocation.text = m.locationLabel
         holder.binding.textTime.text = timeFormat.format(m.time)
-        holder.binding.typeIndicator.setBackgroundColor(ContextCompat.getColor(ctx, colorFor(m.type)))
+        holder.binding.iconType.setImageResource(iconFor(m.type))
+        holder.binding.iconType.backgroundTintList =
+            ContextCompat.getColorStateList(ctx, colorFor(m.type))
         holder.binding.root.setOnClickListener { onClick(m) }
     }
 
@@ -48,6 +50,15 @@ class MeldingAdapter(
             ServiceType.TRAUMA -> R.color.type_trauma
             ServiceType.WATER -> R.color.type_water
             ServiceType.OVERIG -> R.color.type_overig
+        }
+
+        fun iconFor(type: ServiceType): Int = when (type) {
+            ServiceType.AMBULANCE -> R.drawable.ic_type_ambulance
+            ServiceType.BRANDWEER -> R.drawable.ic_type_brandweer
+            ServiceType.POLITIE -> R.drawable.ic_type_politie
+            ServiceType.TRAUMA -> R.drawable.ic_type_trauma
+            ServiceType.WATER -> R.drawable.ic_type_water
+            ServiceType.OVERIG -> R.drawable.ic_type_overig
         }
     }
 }

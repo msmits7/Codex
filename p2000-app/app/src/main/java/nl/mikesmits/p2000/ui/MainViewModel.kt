@@ -1,7 +1,8 @@
 package nl.mikesmits.p2000.ui
 
+import android.app.Application
 import android.location.Location
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
 import nl.mikesmits.p2000.data.Melding
 import nl.mikesmits.p2000.data.MeldingRepository
+import nl.mikesmits.p2000.data.Prefs
 import nl.mikesmits.p2000.data.ServiceType
 
 data class FilterState(
@@ -23,12 +25,19 @@ data class FilterState(
     val radiusActive: Boolean get() = radiusKm > 0 && myLocation != null
 }
 
-class MainViewModel : ViewModel() {
+class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = MeldingRepository()
+    private val prefs = Prefs(application)
 
     private val _all = MutableStateFlow<List<Melding>>(emptyList())
-    private val _filter = MutableStateFlow(FilterState())
+    private val _filter = MutableStateFlow(
+        FilterState(
+            types = prefs.filterTypes,
+            locationQuery = prefs.locationQuery,
+            radiusKm = prefs.radiusKm
+        )
+    )
     private val _status = MutableStateFlow("Laden…")
 
     val filter: StateFlow<FilterState> = _filter
@@ -74,14 +83,17 @@ class MainViewModel : ViewModel() {
         val current = _filter.value.types.toMutableSet()
         if (enabled) current.add(type) else current.remove(type)
         _filter.value = _filter.value.copy(types = current)
+        prefs.filterTypes = current
     }
 
     fun setLocationQuery(query: String) {
         _filter.value = _filter.value.copy(locationQuery = query.trim())
+        prefs.locationQuery = query.trim()
     }
 
     fun setRadiusKm(km: Int) {
         _filter.value = _filter.value.copy(radiusKm = km)
+        prefs.radiusKm = km
     }
 
     fun setMyLocation(location: Location?) {

@@ -29,6 +29,15 @@
                 android:textAppearance="?attr/textAppearanceTitleMedium" />
 
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonTheme"
+                style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:contentDescription="@string/theme_toggle"
+                app:icon="@drawable/ic_theme_auto" />
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonFilters"
                 style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
@@ -71,7 +80,8 @@
             android:id="@+id/listContainer"
             android:layout_width="0dp"
             android:layout_height="match_parent"
-            android:layout_weight="2">
+            android:layout_weight="2"
+            android:background="?attr/colorSurfaceContainerLow">
 
             <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
                 android:id="@+id/swipeRefresh"

@@ -16,4 +16,5 @@
     <string name="location_denied">Locatietoestemming geweigerd – straalfilter uitgeschakeld</string>
     <string name="location_unavailable">Locatie niet beschikbaar – zet locatie aan en probeer opnieuw</string>
     <string name="no_coordinates">Geen kaartpositie bekend voor deze melding</string>
+    <string name="theme_toggle">Thema wisselen (systeem / licht / donker)</string>
 </resources>

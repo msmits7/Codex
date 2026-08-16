@@ -3,14 +3,15 @@ package nl.mikesmits.p2000.ui
 import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
+import android.content.res.Configuration as AndroidConfiguration
 import android.location.LocationManager
 import android.os.Bundle
 import android.view.View
-import android.widget.SeekBar
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.ContextCompat
 import androidx.core.widget.doAfterTextChanged
 import androidx.lifecycle.Lifecycle
@@ -20,9 +21,11 @@ import androidx.preference.PreferenceManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.chip.Chip
+import com.google.android.material.slider.Slider
 import kotlinx.coroutines.launch
 import nl.mikesmits.p2000.R
 import nl.mikesmits.p2000.data.Melding
+import nl.mikesmits.p2000.data.Prefs
 import nl.mikesmits.p2000.data.ServiceType
 import nl.mikesmits.p2000.databinding.ActivityMainBinding
 import nl.mikesmits.p2000.databinding.SheetFiltersBinding
@@ -30,10 +33,12 @@ import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.TilesOverlay
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMainBinding
+    private lateinit var prefs: Prefs
     private val viewModel: MainViewModel by viewModels()
     private val adapter = MeldingAdapter { melding -> focusOnMap(melding) }
     private val markers = mutableListOf<Marker>()
@@ -60,6 +65,7 @@ class MainActivity : AppCompatActivity() {
         Configuration.getInstance().load(this, PreferenceManager.getDefaultSharedPreferences(this))
         Configuration.getInstance().userAgentValue = packageName
 
+        prefs = Prefs(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -67,7 +73,15 @@ class MainActivity : AppCompatActivity() {
         setupMap()
         setupTypeChips()
         setupNavigation()
+        setupThemeButton()
         binding.buttonFilters.setOnClickListener { showFilterSheet() }
+
+        // Straalfilter uit vorige sessie weer activeren als locatie al is toegestaan
+        val savedRadius = viewModel.filter.value.radiusKm
+        if (savedRadius > 0 && hasLocationPermission() && viewModel.filter.value.myLocation == null) {
+            pendingRadiusKm = savedRadius
+            fetchMyLocation()
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -103,14 +117,26 @@ class MainActivity : AppCompatActivity() {
         binding.map.setMultiTouchControls(true)
         binding.map.controller.setZoom(8.0)
         binding.map.controller.setCenter(GeoPoint(52.2, 5.3)) // centre of the Netherlands
+        // In dark mode de kaarttegels mee verdonkeren
+        val night = (resources.configuration.uiMode and AndroidConfiguration.UI_MODE_NIGHT_MASK) ==
+            AndroidConfiguration.UI_MODE_NIGHT_YES
+        binding.map.overlayManager.tilesOverlay.setColorFilter(
+            if (night) TilesOverlay.INVERT_COLORS else null
+        )
     }
 
     private fun setupTypeChips() {
+        val activeTypes = viewModel.filter.value.types
         for (type in ServiceType.values()) {
             val chip = Chip(this).apply {
                 text = type.label
                 isCheckable = true
-                isChecked = true
+                isChecked = type in activeTypes
+                setChipIconResource(MeldingAdapter.iconFor(type))
+                isChipIconVisible = true
+                chipIconTint = ContextCompat.getColorStateList(
+                    this@MainActivity, MeldingAdapter.colorFor(type)
+                )
                 chipBackgroundColor = ContextCompat.getColorStateList(
                     this@MainActivity, R.color.chip_background
                 )
@@ -118,6 +144,25 @@ class MainActivity : AppCompatActivity() {
             }
             binding.chipGroupTypes.addView(chip)
         }
+    }
+
+    private fun setupThemeButton() {
+        binding.buttonTheme.setIconResource(themeIcon(prefs.themeMode))
+        binding.buttonTheme.setOnClickListener {
+            val next = when (prefs.themeMode) {
+                AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM -> AppCompatDelegate.MODE_NIGHT_NO
+                AppCompatDelegate.MODE_NIGHT_NO -> AppCompatDelegate.MODE_NIGHT_YES
+                else -> AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM
+            }
+            prefs.themeMode = next
+            AppCompatDelegate.setDefaultNightMode(next)
+        }
+    }
+
+    private fun themeIcon(mode: Int) = when (mode) {
+        AppCompatDelegate.MODE_NIGHT_NO -> R.drawable.ic_theme_light
+        AppCompatDelegate.MODE_NIGHT_YES -> R.drawable.ic_theme_dark
+        else -> R.drawable.ic_theme_auto
     }
 
     private fun setupNavigation() {
@@ -180,19 +225,19 @@ class MainActivity : AppCompatActivity() {
 
         val f = viewModel.filter.value
         sheetBinding.inputLocation.setText(f.locationQuery)
-        sheetBinding.seekRadius.progress = f.radiusKm
+        sheetBinding.sliderRadius.value = f.radiusKm.toFloat()
         sheetBinding.textRadiusValue.text = radiusLabel(f.radiusKm)
 
         sheetBinding.inputLocation.doAfterTextChanged {
             viewModel.setLocationQuery(it?.toString() ?: "")
         }
-        sheetBinding.seekRadius.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                sheetBinding.textRadiusValue.text = radiusLabel(progress)
-            }
-            override fun onStartTrackingTouch(seekBar: SeekBar?) {}
-            override fun onStopTrackingTouch(seekBar: SeekBar?) {
-                val km = seekBar?.progress ?: 0
+        sheetBinding.sliderRadius.addOnChangeListener { _, value, _ ->
+            sheetBinding.textRadiusValue.text = radiusLabel(value.toInt())
+        }
+        sheetBinding.sliderRadius.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: Slider) {}
+            override fun onStopTrackingTouch(slider: Slider) {
+                val km = slider.value.toInt()
                 if (km > 0) {
                     ensureLocationThen(km)
                 } else {
@@ -221,11 +266,15 @@ class MainActivity : AppCompatActivity() {
         return if (parts.isEmpty()) getString(R.string.filter_none) else parts.joinToString(" · ")
     }
 
-    private fun ensureLocationThen(km: Int) {
-        pendingRadiusKm = km
+    private fun hasLocationPermission(): Boolean {
         val fine = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
         val coarse = ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION)
-        if (fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED) {
+        return fine == PackageManager.PERMISSION_GRANTED || coarse == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun ensureLocationThen(km: Int) {
+        pendingRadiusKm = km
+        if (hasLocationPermission()) {
             fetchMyLocation()
         } else {
             locationPermissionLauncher.launch(
