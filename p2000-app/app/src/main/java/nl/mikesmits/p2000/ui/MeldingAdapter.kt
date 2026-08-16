@@ -32,7 +32,8 @@ class MeldingAdapter(
     override fun onBindViewHolder(holder: Holder, position: Int) {
         val m = getItem(position)
         val ctx = holder.binding.root.context
-        holder.binding.textType.text = m.type.label + (m.prio?.let { " · $it" } ?: "")
+        holder.binding.textType.text = listOfNotNull(m.type.label, m.prio, m.aard)
+            .joinToString(" · ")
         holder.binding.textDescription.text = m.description.ifEmpty { m.rawTitle }
         holder.binding.textLocation.text = m.locationLabel
         holder.binding.textTime.text = timeFormat.format(m.time)

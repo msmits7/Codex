@@ -24,6 +24,10 @@ data class Melding(
     val city: String?,
     val street: String?,
     val postcode: String?,
+    val aard: String? = null,
+    val eenheden: List<String> = emptyList(),
+    val dossier: String? = null,
+    val directeInzet: Boolean = false,
     var lat: Double? = null,
     var lon: Double? = null
 ) {

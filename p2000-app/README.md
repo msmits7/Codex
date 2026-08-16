@@ -12,6 +12,8 @@ Android-app die live P2000-meldingen (ambulance, brandweer, politie, traumaheli,
 - **Foldables & tablets** — zodra het venster minstens 600dp breed is (opengeklapte Galaxy Z Fold 8 / Pixel Fold, tablets, of een telefoon in landscape) schakelt de app naar een two-pane weergave: meldingenlijst links, kaart rechts. Tik op een melding om de kaart erheen te laten springen. Bij open-/dichtklappen of split-screen wisselt de layout automatisch mee.
 - **Alle beeldverhoudingen** — geen vaste orientatie en `resizeableActivity`, dus geen letterboxing: het langgerekte coverscherm (21:9+) en het bijna vierkante binnenscherm van de Galaxy Z Fold 8 worden volledig gebruikt, inclusief doorlopen langs de camera-cutout (`shortEdges`).
 
+- **Detailinformatie per melding** — tik op een melding voor een detailscherm met de aard van de melding (woningbrand, reanimatie, verkeersongeval, schietincident, GRIP-opschaling, …), prioriteit met uitleg (A1/A2/P1/…), directe-inzet-ambulance (DIA), opgeroepen eenheden, rit-/bonnummer, volledig adres en regio, en de originele pagertekst. De aard wordt lokaal uit de ruwe pagertekst herkend met een patronenbibliotheek (`AardExtractor.kt`); ambulancemeldingen bevatten om privacyredenen geen medische details en dat meldt de app dan ook eerlijk.
+
 ## Installatie
 
 Kant-en-klare APK: [`apk/p2000-live.apk`](apk/p2000-live.apk)

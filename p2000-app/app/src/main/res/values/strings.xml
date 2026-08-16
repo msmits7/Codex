@@ -17,4 +17,14 @@
     <string name="location_unavailable">Locatie niet beschikbaar – zet locatie aan en probeer opnieuw</string>
     <string name="no_coordinates">Geen kaartpositie bekend voor deze melding</string>
     <string name="theme_toggle">Thema wisselen (systeem / licht / donker)</string>
+    <string name="detail_raw_title">Originele pagertekst</string>
+    <string name="detail_show_on_map">Toon op kaart</string>
+    <string name="detail_open_browser">Meer info</string>
+    <string name="detail_aard_onbekend">Aard niet vermeld</string>
+    <string name="detail_aard_ambu_privacy">Ambulancemeldingen bevatten om privacyredenen geen medische details</string>
+    <string name="detail_prio">Prioriteit: %s</string>
+    <string name="detail_locatie">Locatie: %s</string>
+    <string name="detail_regio">Regio: %s</string>
+    <string name="detail_eenheden">Eenheden: %s</string>
+    <string name="detail_dia">Directe inzet ambulance (DIA)</string>
 </resources>

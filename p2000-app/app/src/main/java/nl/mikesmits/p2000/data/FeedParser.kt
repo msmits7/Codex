@@ -19,7 +19,14 @@ object FeedParser {
 
     private val dateFormat = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US)
     private val postcodeRegex = Regex("""\b(\d{4}\s?[a-zA-Z]{2})\b""")
-    private val prioRegex = Regex("""^\s*(a1|a2|b1|b2|p1|p2|p 1|p 2|prio\s?\d)""", RegexOption.IGNORE_CASE)
+    private val prioRegex = Regex("""^\s*(a1|a2|b1|b2|p ?[1-3])\b""", RegexOption.IGNORE_CASE)
+    private val prioAnywhereRegex = Regex("""\bprio\s?([1-3])\b""", RegexOption.IGNORE_CASE)
+
+    private fun extractPrio(title: String): String? {
+        prioRegex.find(title)?.let { return it.groupValues[1].uppercase().replace(" ", "") }
+        prioAnywhereRegex.find(title)?.let { return "PRIO${it.groupValues[1]}" }
+        return null
+    }
 
     fun parse(stream: InputStream): List<Melding> {
         val parser = XmlPullParserFactory.newInstance().newPullParser()
@@ -60,12 +67,16 @@ object FeedParser {
             link = link.substringBefore("?utm"),
             time = time,
             type = classify(title, desc),
-            prio = prioRegex.find(title)?.groupValues?.get(1)?.uppercase()?.replace(" ", ""),
+            prio = extractPrio(title),
             province = province,
             region = region,
             city = descCity ?: city,
             street = street,
-            postcode = postcode
+            postcode = postcode,
+            aard = AardExtractor.aard(title, desc),
+            eenheden = AardExtractor.eenheden(title),
+            dossier = AardExtractor.dossier(title),
+            directeInzet = AardExtractor.directeInzet(title)
         )
     }
 

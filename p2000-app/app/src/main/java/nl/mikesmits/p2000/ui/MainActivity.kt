@@ -2,7 +2,9 @@ package nl.mikesmits.p2000.ui
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.content.res.Configuration as AndroidConfiguration
 import android.location.LocationManager
 import android.os.Bundle
@@ -24,11 +26,15 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.slider.Slider
 import kotlinx.coroutines.launch
 import nl.mikesmits.p2000.R
+import nl.mikesmits.p2000.data.AardExtractor
 import nl.mikesmits.p2000.data.Melding
 import nl.mikesmits.p2000.data.Prefs
 import nl.mikesmits.p2000.data.ServiceType
 import nl.mikesmits.p2000.databinding.ActivityMainBinding
+import nl.mikesmits.p2000.databinding.SheetDetailBinding
 import nl.mikesmits.p2000.databinding.SheetFiltersBinding
+import java.text.SimpleDateFormat
+import java.util.Locale
 import org.osmdroid.config.Configuration
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
@@ -40,7 +46,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var prefs: Prefs
     private val viewModel: MainViewModel by viewModels()
-    private val adapter = MeldingAdapter { melding -> focusOnMap(melding) }
+    private val adapter = MeldingAdapter { melding -> showDetailSheet(melding) }
     private val markers = mutableListOf<Marker>()
     private val markerByGuid = mutableMapOf<String, Marker>()
 
@@ -174,6 +180,67 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun showDetailSheet(m: Melding) {
+        val sheetBinding = SheetDetailBinding.inflate(layoutInflater)
+        val dialog = BottomSheetDialog(this)
+        dialog.setContentView(sheetBinding.root)
+
+        val dateFormat = SimpleDateFormat("EEEE d MMMM yyyy · HH:mm:ss", Locale("nl", "NL"))
+
+        sheetBinding.detailIcon.setImageResource(MeldingAdapter.iconFor(m.type))
+        sheetBinding.detailIcon.backgroundTintList =
+            ContextCompat.getColorStateList(this, MeldingAdapter.colorFor(m.type))
+        sheetBinding.detailType.text =
+            listOfNotNull(m.type.label, m.prio).joinToString(" · ")
+        sheetBinding.detailTime.text = dateFormat.format(m.time)
+
+        // Aard van de melding
+        if (m.aard != null) {
+            sheetBinding.detailAard.text = m.aard
+        } else {
+            sheetBinding.detailAard.text = getString(R.string.detail_aard_onbekend)
+            if (m.type == ServiceType.AMBULANCE) {
+                sheetBinding.detailOmschrijving.text =
+                    "${m.description}\n\n${getString(R.string.detail_aard_ambu_privacy)}"
+            }
+        }
+        if (sheetBinding.detailOmschrijving.text.isNullOrEmpty()) {
+            sheetBinding.detailOmschrijving.text = m.description.ifEmpty { m.rawTitle }
+        }
+
+        // Prioriteit met uitleg
+        val prioUitleg = AardExtractor.prioUitleg(m.prio)
+        val dia = if (m.directeInzet) " · ${getString(R.string.detail_dia)}" else ""
+        sheetBinding.detailPrio.visibility = if (prioUitleg != null || dia.isNotEmpty()) View.VISIBLE else View.GONE
+        sheetBinding.detailPrio.text = getString(R.string.detail_prio, (prioUitleg ?: m.prio ?: "-") + dia)
+
+        // Locatie en regio
+        val locatie = listOfNotNull(m.street, m.postcode, m.city).joinToString(", ")
+        sheetBinding.detailLocatie.visibility = if (locatie.isNotEmpty()) View.VISIBLE else View.GONE
+        sheetBinding.detailLocatie.text = getString(R.string.detail_locatie, locatie)
+        val regio = listOfNotNull(m.region, m.province).joinToString(" · ")
+        sheetBinding.detailRegio.visibility = if (regio.isNotEmpty()) View.VISIBLE else View.GONE
+        sheetBinding.detailRegio.text = getString(R.string.detail_regio, regio)
+
+        // Eenheden en rit-/bonnummer
+        sheetBinding.detailEenheden.visibility = if (m.eenheden.isNotEmpty()) View.VISIBLE else View.GONE
+        sheetBinding.detailEenheden.text = getString(R.string.detail_eenheden, m.eenheden.joinToString(", "))
+        sheetBinding.detailDossier.visibility = if (m.dossier != null) View.VISIBLE else View.GONE
+        sheetBinding.detailDossier.text = m.dossier ?: ""
+
+        sheetBinding.detailRaw.text = m.rawTitle
+
+        sheetBinding.buttonShowOnMap.isEnabled = m.lat != null
+        sheetBinding.buttonShowOnMap.setOnClickListener {
+            dialog.dismiss()
+            focusOnMap(m)
+        }
+        sheetBinding.buttonOpenBrowser.setOnClickListener {
+            runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(m.link))) }
+        }
+        dialog.show()
+    }
+
     private fun focusOnMap(melding: Melding) {
         val lat = melding.lat ?: run {
             Toast.makeText(this, R.string.no_coordinates, Toast.LENGTH_SHORT).show()
@@ -197,7 +264,7 @@ class MainActivity : AppCompatActivity() {
             val marker = Marker(binding.map).apply {
                 position = GeoPoint(lat, lon)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                title = "${m.type.label}${m.prio?.let { " · $it" } ?: ""}"
+                title = listOfNotNull(m.type.label, m.prio, m.aard).joinToString(" · ")
                 snippet = m.description.ifEmpty { m.rawTitle }
                 subDescription = m.locationLabel
                 icon = ContextCompat.getDrawable(this@MainActivity, iconFor(m.type))
