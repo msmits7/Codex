@@ -69,6 +69,7 @@ class MeldingRepository(private val store: HistoryStore? = null) {
                 m.lon = existing.lon
                 m.gemeenteCode = existing.gemeenteCode
                 m.gemeenteNaam = existing.gemeenteNaam
+                m.extent = existing.extent
             }
             byGuid[m.guid] = m
         }
@@ -92,16 +93,30 @@ class MeldingRepository(private val store: HistoryStore? = null) {
         return all
     }
 
-    /** Geocode meldingen that don't yet have coordinates. Returns true if anything changed. */
+    /**
+     * Zoek posities op voor meldingen die er nog geen hebben. Meldingen die
+     * alleen een plaats noemen (zoals politieberichten) krijgen er ook de
+     * omhullende van dat gebied bij, zodat het straalfilter op de rand van de
+     * gemeente kan rekenen; die worden dus ook nog eens langsgelopen als ze al
+     * wel een positie hebben.
+     */
     suspend fun geocodeMissing(items: List<Melding>, limit: Int = 25): Boolean {
         var changed = false
-        for (m in items.filter { it.lat == null && it.geoQuery != null }.take(limit)) {
-            val geo = PdokGeocoder.geocode(m.geoQuery!!)
-            if (geo != null) {
+        val todo = items.filter {
+            it.geoQuery != null &&
+                (it.lat == null || (it.extent == null && it.street == null && it.postcode == null))
+        }.take(limit)
+
+        for (m in todo) {
+            val geo = PdokGeocoder.geocode(m.geoQuery!!) ?: continue
+            if (m.lat != geo.lat || m.lon != geo.lon || m.extent != geo.extent ||
+                m.gemeenteCode != geo.gemeenteCode
+            ) {
                 m.lat = geo.lat
                 m.lon = geo.lon
                 m.gemeenteCode = geo.gemeenteCode
                 m.gemeenteNaam = geo.gemeenteNaam
+                m.extent = geo.extent
                 changed = true
             }
         }

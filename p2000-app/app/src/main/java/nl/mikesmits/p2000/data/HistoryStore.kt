@@ -58,6 +58,8 @@ class HistoryStore(context: Context) {
         put("lon", m.lon ?: JSONObject.NULL)
         put("gemeenteCode", m.gemeenteCode ?: JSONObject.NULL)
         put("gemeenteNaam", m.gemeenteNaam ?: JSONObject.NULL)
+        put("extent", m.extent?.let { JSONArray(listOf(it.minLat, it.maxLat, it.minLon, it.maxLon)) }
+            ?: JSONObject.NULL)
     }
 
     private fun fromJson(o: JSONObject): Melding = Melding(
@@ -82,6 +84,9 @@ class HistoryStore(context: Context) {
         lat = if (o.isNull("lat")) null else o.getDouble("lat"),
         lon = if (o.isNull("lon")) null else o.getDouble("lon"),
         gemeenteCode = o.optString("gemeenteCode").takeIf { it.isNotEmpty() && !o.isNull("gemeenteCode") },
-        gemeenteNaam = o.optString("gemeenteNaam").takeIf { it.isNotEmpty() && !o.isNull("gemeenteNaam") }
+        gemeenteNaam = o.optString("gemeenteNaam").takeIf { it.isNotEmpty() && !o.isNull("gemeenteNaam") },
+        extent = o.optJSONArray("extent")?.takeIf { it.length() == 4 }?.let { a ->
+            Bbox(a.getDouble(0), a.getDouble(1), a.getDouble(2), a.getDouble(3))
+        }
     )
 }

@@ -34,8 +34,23 @@ data class Melding(
     /** Gemeente waarin de melding valt; ingevuld tijdens het geocoderen en
      *  gebruikt om cijfers bij data.politie.nl op te halen. */
     var gemeenteCode: String? = null,
-    var gemeenteNaam: String? = null
+    var gemeenteNaam: String? = null,
+    /** Omhullende van de plaats/gemeente als er geen exact adres bekend is;
+     *  daarmee telt een gebied mee zodra het deels binnen de straal ligt. */
+    var extent: Bbox? = null
 ) {
+
+    /**
+     * Afstand in meters tot een punt. Bij een gebied (plaats of gemeente
+     * zonder exact adres) is dat de afstand tot de rand van dat gebied, dus 0
+     * als het punt er middenin ligt.
+     */
+    fun distanceMetersFrom(lat: Double, lon: Double): Double? {
+        extent?.let { return GeoUtils.distanceToBox(lat, lon, it) }
+        val mLat = this.lat ?: return null
+        val mLon = this.lon ?: return null
+        return GeoUtils.distance(lat, lon, mLat, mLon)
+    }
     /** Best available textual key for geocoding, or null if nothing usable. */
     val geoQuery: String?
         get() = when {

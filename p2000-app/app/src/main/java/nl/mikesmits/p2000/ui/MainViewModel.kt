@@ -37,6 +37,19 @@ data class FilterState(
      * type juist wél is aangevinkt. Aanvinken betekent dus "alleen dit tonen".
      */
     fun matchesType(type: ServiceType): Boolean = types.isEmpty() || type in types
+
+    /**
+     * Valt de melding binnen de ingestelde straal? Bij een melding zonder exact
+     * adres (politieberichten kennen alleen een plaats/gemeente) telt de afstand
+     * tot de rand van dat gebied, zodat de melding meedoet zodra de gemeente ook
+     * maar deels binnen de straal ligt.
+     */
+    fun withinRadius(melding: Melding): Boolean {
+        if (!radiusActive) return true
+        val here = myLocation ?: return true
+        val meters = melding.distanceMetersFrom(here.latitude, here.longitude) ?: return false
+        return meters <= radiusKm * 1000.0
+    }
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -83,6 +96,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     f.locationQuery.isEmpty() || listOfNotNull(m.city, m.rawTitle, m.description)
                         .joinToString(" ").lowercase().contains(f.locationQuery.lowercase())
                 }
+                .filter { f.withinRadius(it) }
                 .map { MeldingGroep(listOf(it)) }
                 .toList()
         }
@@ -178,15 +192,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     .joinToString(" ").lowercase()
                 if (!haystack.contains(q)) return@filter false
             }
-            if (f.radiusActive) {
-                val lat = m.lat ?: return@filter false
-                val lon = m.lon ?: return@filter false
-                val results = FloatArray(1)
-                Location.distanceBetween(
-                    f.myLocation!!.latitude, f.myLocation.longitude, lat, lon, results
-                )
-                if (results[0] > f.radiusKm * 1000f) return@filter false
-            }
+            if (!f.withinRadius(m)) return@filter false
             true
         }
     }
