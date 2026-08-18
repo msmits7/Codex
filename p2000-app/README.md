@@ -4,7 +4,8 @@ Android-app die live P2000-meldingen (ambulance, brandweer, politie, traumaheli,
 
 ## Functies
 
-- **Live meldingen** — haalt elke 30 seconden de landelijke P2000-feed op (bron: alarmeringen.nl) en ondersteunt pull-to-refresh.
+- **Live meldingen uit twee bronnen** — de RSS-feed van alarmeringen.nl (netjes geparseerde omschrijvingen, maar vrijwel alleen A1-spoed) én de monitorpagina van p2000-online.net, die álle prioriteiten bevat: A2, P1-P3 en besteld vervoer (B1/B2). Dubbele meldingen worden op ritnummer herkend en samengevoegd. Pull-to-refresh wordt ondersteund.
+- **Plaatsafkortingen** — pagerteksten korten plaatsen af ("SGRAVH" voor Den Haag). De app vertaalt die via een vaste tabel, checkt anders bij de geocoder of het token zelf een woonplaats is, en laat de plaats leeg als beide falen — liever geen speld dan een speld in de verkeerde stad.
 - **Per type hulpverlening** — elke melding wordt geclassificeerd (Ambulance, Brandweer, Politie, Traumaheli, KNRM/Water, Politiebericht, Overig) met eigen kleur en icoon. De chips bovenin werken als selectie: niets aangevinkt toont alles, en zodra je bijvoorbeeld Brandweer aanvinkt zie je alleen brandweermeldingen. Meerdere types tegelijk kan gewoon.
 - **Kaartweergave** — OpenStreetMap (osmdroid, geen API-key nodig) met gekleurde markers per type. Adressen worden gegeocodeerd via de gratis PDOK Locatieserver (postcode → straat → plaats, met cache).
 - **Locatiefilter** — vrije tekstfilter op plaats, straat, postcode of regio.

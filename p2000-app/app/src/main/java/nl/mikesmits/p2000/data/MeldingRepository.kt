@@ -21,6 +21,14 @@ class MeldingRepository(private val store: HistoryStore? = null) {
             "https://rss.politie.nl/rss/algemeen/nb/alle-nieuwsberichten.xml" to "Politienieuws"
         )
         private const val POLITIE_INTERVAL_MS = 5 * 60 * 1000L
+
+        /**
+         * Tweede P2000-bron. De feed van alarmeringen.nl bevat vrijwel alleen
+         * A1-spoedmeldingen; deze monitorpagina bevat alle prioriteiten,
+         * inclusief A2 en besteld vervoer (B1/B2).
+         */
+        private const val P2000_ONLINE_URL = "https://www.p2000-online.net/p2000.py"
+        private const val P2000_ONLINE_INTERVAL_MS = 30_000L
         /** Historie tot een week terug, zodat de langere tijdfilters werken. */
         private const val MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000L
         private const val MAX_ITEMS = 60000
@@ -32,6 +40,9 @@ class MeldingRepository(private val store: HistoryStore? = null) {
     private var loaded = false
     private var lastSave = 0L
     private var lastPolitieFetch = 0L
+    private var lastOnlineFetch = 0L
+    /** Ritnummer -> tijdstip, om dezelfde melding uit twee bronnen te herkennen. */
+    private val ritIndex = HashMap<String, Long>()
 
     /** Laad de opgeslagen historie (eenmalig, vóór het eerste gebruik). */
     suspend fun ensureLoaded() = withContext(Dispatchers.IO) {
@@ -51,9 +62,15 @@ class MeldingRepository(private val store: HistoryStore? = null) {
         conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
         val fresh = conn.inputStream.use { FeedParser.parse(it) }
         val politie = fetchPolitieFeeds()
-        val result = synchronized(byGuid) {
+        // Eerst de rijk geparseerde feed samenvoegen, daarna de bredere bron;
+        // dubbele meldingen worden op ritnummer herkend en overgeslagen.
+        synchronized(byGuid) {
             merge(fresh)
             merge(politie)
+        }
+        val online = fetchP2000Online()
+        val result = synchronized(byGuid) {
+            merge(online)
             pruneAndSort()
         }
         maybePersist(result)
@@ -62,6 +79,15 @@ class MeldingRepository(private val store: HistoryStore? = null) {
 
     private fun merge(fresh: List<Melding>) {
         for (m in fresh) {
+            val rit = m.ritNummer
+            if (rit != null) {
+                val eerder = ritIndex[rit]
+                // Zelfde rit binnen een uur = dezelfde inzet uit de andere bron
+                if (eerder != null && kotlin.math.abs(eerder - m.time.time) < 60 * 60 * 1000L &&
+                    !byGuid.containsKey(m.guid)
+                ) continue
+                ritIndex[rit] = m.time.time
+            }
             val existing = byGuid[m.guid]
             if (existing != null) {
                 // bewaar wat eerder al is opgezocht
@@ -91,6 +117,63 @@ class MeldingRepository(private val store: HistoryStore? = null) {
             }
         }
         return all
+    }
+
+    /**
+     * Haalt de monitorpagina op en zet die om naar meldingen. De plaats wordt
+     * uit de pagerafkorting afgeleid; lukt dat niet, dan blijft de plaats leeg
+     * zodat er geen speld op de verkeerde plek belandt.
+     */
+    private suspend fun fetchP2000Online(): List<Melding> {
+        val now = System.currentTimeMillis()
+        if (lastOnlineFetch != 0L && now - lastOnlineFetch < P2000_ONLINE_INTERVAL_MS) return emptyList()
+        lastOnlineFetch = now
+        val html = runCatching {
+            val conn = URL(P2000_ONLINE_URL).openConnection() as HttpURLConnection
+            conn.connectTimeout = 10000
+            conn.readTimeout = 15000
+            conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
+            conn.inputStream.bufferedReader(Charsets.ISO_8859_1).use { it.readText() }
+        }.getOrNull() ?: return emptyList()
+
+        return P2000OnlineParser.parse(html).map { ruw ->
+            val treffer: Pair<String, String>? = PlaatsCodes.kandidaten(ruw.tekst)
+                .firstNotNullOfOrNull { token ->
+                    PlaatsCodes.resolve(token) { PdokGeocoder.woonplaatsNaam(it) }
+                        ?.let { naam -> token to naam }
+                }
+            val plaats = treffer?.second
+            val straat = PlaatsCodes.straatUit(ruw.tekst, treffer?.first)
+            val type = P2000OnlineParser.typeVoor(ruw.discipline, ruw.tekst)
+            Melding(
+                guid = "p2o|${ruw.time.time}|${ruw.tekst.hashCode()}",
+                rawTitle = ruw.tekst,
+                description = beschrijving(type, straat, plaats, ruw.regio),
+                link = P2000_ONLINE_URL,
+                time = ruw.time,
+                type = type,
+                prio = ruw.prio,
+                province = null,
+                region = ruw.regio,
+                city = plaats,
+                street = straat,
+                postcode = null,
+                aard = AardExtractor.aard(ruw.tekst, ""),
+                eenheden = AardExtractor.eenheden(ruw.tekst),
+                dossier = AardExtractor.dossier(ruw.tekst),
+                directeInzet = AardExtractor.directeInzet(ruw.tekst)
+            )
+        }
+    }
+
+    private fun beschrijving(type: ServiceType, straat: String?, plaats: String?, regio: String): String {
+        val waar = when {
+            straat != null && plaats != null -> "$straat in $plaats"
+            plaats != null -> plaats
+            straat != null -> "$straat ($regio)"
+            else -> regio
+        }
+        return "${type.label} naar $waar"
     }
 
     /**

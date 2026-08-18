@@ -51,6 +51,10 @@ data class Melding(
         val mLon = this.lon ?: return null
         return GeoUtils.distance(lat, lon, mLat, mLon)
     }
+    /** Rit-/bonnummer uit de meldingstekst, om dubbele bronnen te herkennen. */
+    val ritNummer: String?
+        get() = ritRegex.find(rawTitle)?.groupValues?.get(1)
+
     /** Best available textual key for geocoding, or null if nothing usable. */
     val geoQuery: String?
         get() = when {
@@ -84,6 +88,8 @@ data class Melding(
     private fun norm(value: String): String =
         value.lowercase().filter { it.isLetterOrDigit() }
 }
+
+private val ritRegex = Regex("\\b(?:rit|bon)[:\\s]+(\\d{4,8})", RegexOption.IGNORE_CASE)
 
 /** Eén incident: alle meldingen (mogelijk van meerdere diensten) gebundeld. */
 data class MeldingGroep(val meldingen: List<Melding>) {

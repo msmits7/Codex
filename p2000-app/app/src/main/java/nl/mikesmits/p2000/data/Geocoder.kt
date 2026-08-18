@@ -43,6 +43,20 @@ object PdokGeocoder {
         result
     }
 
+    /** Bestaat deze naam als woonplaats? Geeft de officiële schrijfwijze terug. */
+    suspend fun woonplaatsNaam(naam: String): String? = withContext(Dispatchers.IO) {
+        try {
+            val q = URLEncoder.encode(naam, "UTF-8")
+            val url = URL("$SEARCH?q=$q&rows=1&fq=type:woonplaats&fl=weergavenaam")
+            val doc = readJson(url)
+                ?.getJSONObject("response")?.getJSONArray("docs")
+                ?.takeIf { it.length() > 0 }?.getJSONObject(0)
+            doc?.optString("weergavenaam")?.substringBefore(",")?.takeIf { it.isNotEmpty() }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun fetch(query: String): GeoResult? {
         return try {
             val q = URLEncoder.encode(query, "UTF-8")
