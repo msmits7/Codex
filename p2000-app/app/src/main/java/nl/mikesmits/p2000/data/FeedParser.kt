@@ -19,7 +19,7 @@ object FeedParser {
 
     private val dateFormat = SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss Z", Locale.US)
     private val postcodeRegex = Regex("""\b(\d{4}\s?[a-zA-Z]{2})\b""")
-    private val prioRegex = Regex("""^\s*(a1|a2|b1|b2|p ?[1-3])\b""", RegexOption.IGNORE_CASE)
+    private val prioRegex = Regex("""^\s*(a0|a1|a2|b1|b2|p ?[1-3])\b""", RegexOption.IGNORE_CASE)
     private val prioAnywhereRegex = Regex("""\bprio\s?([1-3])\b""", RegexOption.IGNORE_CASE)
 
     private fun extractPrio(title: String): String? {
@@ -99,28 +99,54 @@ object FeedParser {
         }
     }
 
-    /** Description pattern: "... naar <straat> in <plaats>" or "... naar <plaats>". */
+    /**
+     * Description patterns seen in the wild:
+     *  "Ambulance met spoed naar H. de Lintweg in Spijkenisse"
+     *  "Politie naar Karel Doormanlaan in Bussum voor ongeval met letsel"
+     *  "Industriebrand op Industrieweg in Den Helder"
+     *  "Reanimatie in Apeldoorn"
+     */
+    private val prepRegex = Regex(""" (naar|op|aan|bij) (.+)$""")
+
     private fun parseDescription(desc: String): Pair<String?, String?> {
-        val afterNaar = desc.substringAfter(" naar ", "").trim()
-        if (afterNaar.isEmpty()) return Pair(null, null)
-        val inIndex = afterNaar.lastIndexOf(" in ")
-        return if (inIndex > 0) {
-            Pair(afterNaar.substring(0, inIndex).trim(), afterNaar.substring(inIndex + 4).trim())
-        } else {
-            Pair(null, afterNaar)
+        var rest = desc.trim()
+        // "… in Bussum voor ongeval met letsel" — de aard-staart hoort niet bij de plaats
+        val voorIndex = rest.indexOf(" voor ")
+        if (voorIndex > 0) rest = rest.substring(0, voorIndex)
+
+        val afterPrep = prepRegex.find(rest)?.groupValues?.get(2)?.trim()
+        if (!afterPrep.isNullOrEmpty()) {
+            val inIndex = afterPrep.lastIndexOf(" in ")
+            return if (inIndex > 0) {
+                Pair(afterPrep.substring(0, inIndex).trim(), afterPrep.substring(inIndex + 4).trim())
+            } else {
+                Pair(null, afterPrep)
+            }
         }
+        // "Reanimatie in Apeldoorn" — geen voorzetsel-met-straat, wel een plaats
+        val inIndex = rest.lastIndexOf(" in ")
+        if (inIndex > 0) return Pair(null, rest.substring(inIndex + 4).trim())
+        return Pair(null, null)
     }
+
+    private val traumaRegex = Regex("""\bmmt\d?\b|lifeliner|traumaheli|\bheli\b""")
+    private val waterRegex = Regex("""\bknrm\b|kustwacht|reddingsbrigade|\bkwc\b|\bredb\b|\brb\b""")
+    private val brandweerAardRegex =
+        Regex("""brand\b|\boms\b|gaslek|gaslucht|wateroverlast|stormschade|liftopsluiting|buitensluiting|te water|stank|beknelling|hulpverlening""")
 
     private fun classify(title: String, desc: String): ServiceType {
         val d = desc.lowercase()
         val t = " ${title.lowercase()} "
         return when {
-            d.startsWith("traumaheli") || d.contains("lifeliner") || t.contains(" heli ") -> ServiceType.TRAUMA
-            d.startsWith("ambulance") || t.contains(" ambu ") || t.contains(" mka ") -> ServiceType.AMBULANCE
-            d.startsWith("brandweer") || t.contains(" brw ") || d.contains("brandweer") -> ServiceType.BRANDWEER
-            d.startsWith("politie") || t.contains(" pol ") || d.contains("politie") -> ServiceType.POLITIE
-            d.contains("knrm") || d.contains("reddingsbrigade") || d.contains("kustwacht") ||
-                t.contains("knrm") || t.contains("kustwacht") -> ServiceType.WATER
+            traumaRegex.containsMatchIn(t) || d.startsWith("traumaheli") ||
+                d.contains("lifeliner") || d.contains("traumahelikopter") -> ServiceType.TRAUMA
+            waterRegex.containsMatchIn(t) || d.contains("knrm") ||
+                d.contains("reddingsbrigade") || d.contains("kustwacht") -> ServiceType.WATER
+            d.startsWith("politie") || t.contains(" pol ") -> ServiceType.POLITIE
+            d.startsWith("ambulance") || t.contains(" ambu ") || t.contains(" mka ") ||
+                d.startsWith("reanimatie") || t.contains("reanimatie") -> ServiceType.AMBULANCE
+            d.startsWith("brandweer") || t.contains(" brw ") || d.contains("brandweer") ||
+                brandweerAardRegex.containsMatchIn(d) -> ServiceType.BRANDWEER
             else -> ServiceType.OVERIG
         }
     }

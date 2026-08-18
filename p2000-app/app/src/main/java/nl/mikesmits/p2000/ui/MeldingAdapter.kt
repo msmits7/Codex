@@ -7,21 +7,23 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import nl.mikesmits.p2000.R
-import nl.mikesmits.p2000.data.Melding
+import nl.mikesmits.p2000.data.MeldingGroep
 import nl.mikesmits.p2000.data.ServiceType
 import nl.mikesmits.p2000.databinding.ItemMeldingBinding
 import java.text.SimpleDateFormat
 import java.util.Locale
 
 class MeldingAdapter(
-    private val onClick: (Melding) -> Unit = {}
-) : ListAdapter<Melding, MeldingAdapter.Holder>(Diff) {
+    private val onClick: (MeldingGroep) -> Unit = {}
+) : ListAdapter<MeldingGroep, MeldingAdapter.Holder>(Diff) {
 
     private val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
-    object Diff : DiffUtil.ItemCallback<Melding>() {
-        override fun areItemsTheSame(oldItem: Melding, newItem: Melding) = oldItem.guid == newItem.guid
-        override fun areContentsTheSame(oldItem: Melding, newItem: Melding) = oldItem == newItem
+    object Diff : DiffUtil.ItemCallback<MeldingGroep>() {
+        override fun areItemsTheSame(oldItem: MeldingGroep, newItem: MeldingGroep) =
+            oldItem.primary.guid == newItem.primary.guid
+        override fun areContentsTheSame(oldItem: MeldingGroep, newItem: MeldingGroep) =
+            oldItem == newItem
     }
 
     class Holder(val binding: ItemMeldingBinding) : RecyclerView.ViewHolder(binding.root)
@@ -30,17 +32,22 @@ class MeldingAdapter(
         Holder(ItemMeldingBinding.inflate(LayoutInflater.from(parent.context), parent, false))
 
     override fun onBindViewHolder(holder: Holder, position: Int) {
-        val m = getItem(position)
+        val g = getItem(position)
+        val m = g.primary
         val ctx = holder.binding.root.context
-        holder.binding.textType.text = listOfNotNull(m.type.label, m.prio, m.aard)
-            .joinToString(" · ")
+        val typesLabel = g.types.joinToString(" + ") { it.label }
+        holder.binding.textType.text =
+            listOfNotNull(typesLabel, g.prio, g.aard).joinToString(" · ")
         holder.binding.textDescription.text = m.description.ifEmpty { m.rawTitle }
-        holder.binding.textLocation.text = m.locationLabel
+        val extra = if (g.meldingen.size > 1) {
+            " · " + ctx.getString(R.string.group_count, g.meldingen.size)
+        } else ""
+        holder.binding.textLocation.text = m.locationLabel + extra
         holder.binding.textTime.text = timeFormat.format(m.time)
         holder.binding.iconType.setImageResource(iconFor(m.type))
         holder.binding.iconType.backgroundTintList =
             ContextCompat.getColorStateList(ctx, colorFor(m.type))
-        holder.binding.root.setOnClickListener { onClick(m) }
+        holder.binding.root.setOnClickListener { onClick(g) }
     }
 
     companion object {

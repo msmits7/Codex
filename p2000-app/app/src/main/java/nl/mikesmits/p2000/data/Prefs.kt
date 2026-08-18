@@ -30,4 +30,13 @@ class Prefs(context: Context) {
     var radiusKm: Int
         get() = prefs.getInt("filter_radius_km", 0)
         set(value) = prefs.edit { putInt("filter_radius_km", value) }
+
+    /** Hoe ver terugkijken, in minuten. 1440 (24 uur) = volledige historie. */
+    var windowMinutes: Int
+        get() = prefs.getInt("filter_window_minutes", 1440)
+        set(value) = prefs.edit { putInt("filter_window_minutes", value) }
+
+    var backgroundEnabled: Boolean
+        get() = prefs.getBoolean("background_enabled", false)
+        set(value) = prefs.edit { putBoolean("background_enabled", value) }
 }

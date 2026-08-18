@@ -87,6 +87,7 @@ object AardExtractor {
 
     /** Uitleg bij de prioriteitscode. */
     fun prioUitleg(prio: String?): String? = when (prio?.uppercase()) {
+        "A0" -> "A0 – reanimatie, maximale spoed"
         "A1" -> "A1 – levensbedreigend, hoogste spoed (sirene en zwaailicht)"
         "A2" -> "A2 – spoed, geen directe levensbedreiging"
         "B", "B1", "B2" -> "B – gepland / besteld vervoer"

@@ -6,17 +6,31 @@ import java.net.HttpURLConnection
 import java.net.URL
 
 /**
- * Fetches the live P2000 feed and keeps a rolling window of recent meldingen,
- * merged on GUID so repeated polls only add new items.
+ * Fetches the live P2000 feed and builds a rolling 24-hour history, merged on
+ * GUID and persisted to disk so restarts keep the history.
  */
-class MeldingRepository {
+class MeldingRepository(private val store: HistoryStore? = null) {
 
     companion object {
         private const val FEED_URL = "https://alarmeringen.nl/feeds/all.rss"
-        private const val MAX_ITEMS = 300
+        private const val MAX_AGE_MS = 24 * 60 * 60 * 1000L
+        private const val MAX_ITEMS = 20000
+        private const val SAVE_INTERVAL_MS = 60_000L
     }
 
     private val byGuid = LinkedHashMap<String, Melding>()
+    private var loaded = false
+    private var lastSave = 0L
+
+    /** Laad de opgeslagen historie (eenmalig, vóór het eerste gebruik). */
+    suspend fun ensureLoaded() = withContext(Dispatchers.IO) {
+        synchronized(byGuid) {
+            if (!loaded) {
+                loaded = true
+                store?.load()?.forEach { byGuid[it.guid] = it }
+            }
+        }
+    }
 
     /** Fetch the feed and return the full, merged, newest-first list. */
     suspend fun refresh(): List<Melding> = withContext(Dispatchers.IO) {
@@ -25,7 +39,7 @@ class MeldingRepository {
         conn.readTimeout = 15000
         conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
         val fresh = conn.inputStream.use { FeedParser.parse(it) }
-        synchronized(byGuid) {
+        val result = synchronized(byGuid) {
             for (m in fresh) {
                 val existing = byGuid[m.guid]
                 if (existing != null) {
@@ -35,8 +49,10 @@ class MeldingRepository {
                 }
                 byGuid[m.guid] = m
             }
-            trimAndSort()
+            pruneAndSort()
         }
+        maybePersist(result)
+        result
     }
 
     /** Geocode meldingen that don't yet have coordinates. Returns true if anything changed. */
@@ -50,18 +66,29 @@ class MeldingRepository {
                 changed = true
             }
         }
+        if (changed) maybePersist(current())
         return changed
     }
 
-    fun current(): List<Melding> = synchronized(byGuid) { trimAndSort() }
+    fun current(): List<Melding> = synchronized(byGuid) { pruneAndSort() }
 
-    private fun trimAndSort(): List<Melding> {
-        val sorted = byGuid.values.sortedByDescending { it.time }
-        if (sorted.size > MAX_ITEMS) {
-            val keep = sorted.take(MAX_ITEMS)
+    private fun maybePersist(items: List<Melding>) {
+        val now = System.currentTimeMillis()
+        if (store != null && now - lastSave > SAVE_INTERVAL_MS) {
+            lastSave = now
+            store.save(items)
+        }
+    }
+
+    private fun pruneAndSort(): List<Melding> {
+        val cutoff = System.currentTimeMillis() - MAX_AGE_MS
+        val sorted = byGuid.values
+            .filter { it.time.time >= cutoff }
+            .sortedByDescending { it.time }
+            .take(MAX_ITEMS)
+        if (sorted.size != byGuid.size) {
             byGuid.clear()
-            keep.forEach { byGuid[it.guid] = it }
-            return keep
+            sorted.forEach { byGuid[it.guid] = it }
         }
         return sorted
     }

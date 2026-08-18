@@ -43,4 +43,29 @@ data class Melding(
 
     val locationLabel: String
         get() = listOfNotNull(street, city).joinToString(", ").ifEmpty { region ?: province ?: "Onbekend" }
+
+    /**
+     * Sleutel om meldingen van verschillende diensten voor hetzelfde incident
+     * te bundelen. Null = niet te bundelen (te weinig locatie-informatie).
+     */
+    val groupKey: String?
+        get() = when {
+            street != null && city != null -> "s|${street.lowercase()}|${city.lowercase()}"
+            postcode != null -> "p|$postcode"
+            city != null && aard != null -> "a|${city.lowercase()}|${aard.lowercase()}"
+            else -> null
+        }
+}
+
+/** Eén incident: alle meldingen (mogelijk van meerdere diensten) gebundeld. */
+data class MeldingGroep(val meldingen: List<Melding>) {
+    val primary: Melding get() = meldingen.first()
+    val types: List<ServiceType> get() = meldingen.map { it.type }.distinct()
+    val aard: String? get() = meldingen.firstNotNullOfOrNull { it.aard }
+    val prio: String? get() = meldingen.firstNotNullOfOrNull { it.prio }
+    val eenheden: List<String> get() = meldingen.flatMap { it.eenheden }.distinct()
+    val dossier: String? get() = meldingen.firstNotNullOfOrNull { it.dossier }
+    val directeInzet: Boolean get() = meldingen.any { it.directeInzet }
+    val lat: Double? get() = meldingen.firstNotNullOfOrNull { it.lat }
+    val lon: Double? get() = meldingen.firstNotNullOfOrNull { it.lon }
 }

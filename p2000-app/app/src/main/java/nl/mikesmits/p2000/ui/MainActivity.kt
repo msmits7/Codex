@@ -26,8 +26,9 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.slider.Slider
 import kotlinx.coroutines.launch
 import nl.mikesmits.p2000.R
+import nl.mikesmits.p2000.PollService
 import nl.mikesmits.p2000.data.AardExtractor
-import nl.mikesmits.p2000.data.Melding
+import nl.mikesmits.p2000.data.MeldingGroep
 import nl.mikesmits.p2000.data.Prefs
 import nl.mikesmits.p2000.data.ServiceType
 import nl.mikesmits.p2000.databinding.ActivityMainBinding
@@ -46,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var prefs: Prefs
     private val viewModel: MainViewModel by viewModels()
-    private val adapter = MeldingAdapter { melding -> showDetailSheet(melding) }
+    private val adapter = MeldingAdapter { groep -> showDetailSheet(groep) }
     private val markers = mutableListOf<Marker>()
     private val markerByGuid = mutableMapOf<String, Marker>()
 
@@ -54,6 +55,13 @@ class MainActivity : AppCompatActivity() {
     private val isDualPane: Boolean
         get() = binding.bottomNav.visibility == View.GONE
     private var pendingRadiusKm: Int? = null
+
+    private val notificationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) {
+            // Service starten ongeacht het antwoord; zonder toestemming is de
+            // notificatie onzichtbaar maar blijft de service werken.
+            startPollService()
+        }
 
     private val locationPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { grants ->
@@ -89,10 +97,15 @@ class MainActivity : AppCompatActivity() {
             fetchMyLocation()
         }
 
+        // Achtergrond-verversing hervatten als die aan stond
+        if (prefs.backgroundEnabled && !PollService.running) {
+            startPollService()
+        }
+
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch {
-                    viewModel.filtered.collect { list ->
+                    viewModel.groups.collect { list ->
                         adapter.submitList(list)
                         binding.textEmpty.visibility =
                             if (list.isEmpty()) View.VISIBLE else View.GONE
@@ -180,26 +193,28 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showDetailSheet(m: Melding) {
+    private fun showDetailSheet(g: MeldingGroep) {
+        val m = g.primary
         val sheetBinding = SheetDetailBinding.inflate(layoutInflater)
         val dialog = BottomSheetDialog(this)
         dialog.setContentView(sheetBinding.root)
 
         val dateFormat = SimpleDateFormat("EEEE d MMMM yyyy · HH:mm:ss", Locale("nl", "NL"))
+        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
         sheetBinding.detailIcon.setImageResource(MeldingAdapter.iconFor(m.type))
         sheetBinding.detailIcon.backgroundTintList =
             ContextCompat.getColorStateList(this, MeldingAdapter.colorFor(m.type))
-        sheetBinding.detailType.text =
-            listOfNotNull(m.type.label, m.prio).joinToString(" · ")
+        val typesLabel = g.types.joinToString(" + ") { it.label }
+        sheetBinding.detailType.text = listOfNotNull(typesLabel, g.prio).joinToString(" · ")
         sheetBinding.detailTime.text = dateFormat.format(m.time)
 
         // Aard van de melding
-        if (m.aard != null) {
-            sheetBinding.detailAard.text = m.aard
+        if (g.aard != null) {
+            sheetBinding.detailAard.text = g.aard
         } else {
             sheetBinding.detailAard.text = getString(R.string.detail_aard_onbekend)
-            if (m.type == ServiceType.AMBULANCE) {
+            if (g.types.all { it == ServiceType.AMBULANCE }) {
                 sheetBinding.detailOmschrijving.text =
                     "${m.description}\n\n${getString(R.string.detail_aard_ambu_privacy)}"
             }
@@ -209,10 +224,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Prioriteit met uitleg
-        val prioUitleg = AardExtractor.prioUitleg(m.prio)
-        val dia = if (m.directeInzet) " · ${getString(R.string.detail_dia)}" else ""
+        val prioUitleg = AardExtractor.prioUitleg(g.prio)
+        val dia = if (g.directeInzet) " · ${getString(R.string.detail_dia)}" else ""
         sheetBinding.detailPrio.visibility = if (prioUitleg != null || dia.isNotEmpty()) View.VISIBLE else View.GONE
-        sheetBinding.detailPrio.text = getString(R.string.detail_prio, (prioUitleg ?: m.prio ?: "-") + dia)
+        sheetBinding.detailPrio.text = getString(R.string.detail_prio, (prioUitleg ?: g.prio ?: "-") + dia)
 
         // Locatie en regio
         val locatie = listOfNotNull(m.street, m.postcode, m.city).joinToString(", ")
@@ -222,18 +237,21 @@ class MainActivity : AppCompatActivity() {
         sheetBinding.detailRegio.visibility = if (regio.isNotEmpty()) View.VISIBLE else View.GONE
         sheetBinding.detailRegio.text = getString(R.string.detail_regio, regio)
 
-        // Eenheden en rit-/bonnummer
-        sheetBinding.detailEenheden.visibility = if (m.eenheden.isNotEmpty()) View.VISIBLE else View.GONE
-        sheetBinding.detailEenheden.text = getString(R.string.detail_eenheden, m.eenheden.joinToString(", "))
-        sheetBinding.detailDossier.visibility = if (m.dossier != null) View.VISIBLE else View.GONE
-        sheetBinding.detailDossier.text = m.dossier ?: ""
+        // Eenheden en rit-/bonnummer (samengevoegd over alle gekoppelde meldingen)
+        sheetBinding.detailEenheden.visibility = if (g.eenheden.isNotEmpty()) View.VISIBLE else View.GONE
+        sheetBinding.detailEenheden.text = getString(R.string.detail_eenheden, g.eenheden.joinToString(", "))
+        sheetBinding.detailDossier.visibility = if (g.dossier != null) View.VISIBLE else View.GONE
+        sheetBinding.detailDossier.text = g.dossier ?: ""
 
-        sheetBinding.detailRaw.text = m.rawTitle
+        // Alle pagerteksten van dit incident, nieuwste eerst
+        sheetBinding.detailRaw.text = g.meldingen.joinToString("\n\n") { melding ->
+            "${timeFormat.format(melding.time)} · ${melding.type.label}\n${melding.rawTitle}"
+        }
 
-        sheetBinding.buttonShowOnMap.isEnabled = m.lat != null
+        sheetBinding.buttonShowOnMap.isEnabled = g.lat != null
         sheetBinding.buttonShowOnMap.setOnClickListener {
             dialog.dismiss()
-            focusOnMap(m)
+            focusOnMap(g)
         }
         sheetBinding.buttonOpenBrowser.setOnClickListener {
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(m.link))) }
@@ -241,32 +259,35 @@ class MainActivity : AppCompatActivity() {
         dialog.show()
     }
 
-    private fun focusOnMap(melding: Melding) {
-        val lat = melding.lat ?: run {
+    private fun focusOnMap(g: MeldingGroep) {
+        val lat = g.lat ?: run {
             Toast.makeText(this, R.string.no_coordinates, Toast.LENGTH_SHORT).show()
             return
         }
-        val lon = melding.lon ?: return
+        val lon = g.lon ?: return
         if (!isDualPane) {
             binding.bottomNav.selectedItemId = R.id.nav_map
         }
         binding.map.controller.animateTo(GeoPoint(lat, lon), 14.0, 600L)
-        markerByGuid[melding.guid]?.showInfoWindow()
+        markerByGuid[g.primary.guid]?.showInfoWindow()
     }
 
-    private fun updateMapMarkers(list: List<Melding>) {
+    private fun updateMapMarkers(list: List<MeldingGroep>) {
         markers.forEach { binding.map.overlays.remove(it) }
         markers.clear()
         markerByGuid.clear()
-        for (m in list) {
-            val lat = m.lat ?: continue
-            val lon = m.lon ?: continue
+        for (g in list) {
+            val lat = g.lat ?: continue
+            val lon = g.lon ?: continue
+            val m = g.primary
+            val typesLabel = g.types.joinToString(" + ") { it.label }
             val marker = Marker(binding.map).apply {
                 position = GeoPoint(lat, lon)
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
-                title = listOfNotNull(m.type.label, m.prio, m.aard).joinToString(" · ")
+                title = listOfNotNull(typesLabel, g.prio, g.aard).joinToString(" · ")
                 snippet = m.description.ifEmpty { m.rawTitle }
-                subDescription = m.locationLabel
+                subDescription = m.locationLabel +
+                    if (g.meldingen.size > 1) " · ${getString(R.string.group_count, g.meldingen.size)}" else ""
                 icon = ContextCompat.getDrawable(this@MainActivity, iconFor(m.type))
             }
             markers.add(marker)
@@ -312,12 +333,54 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+        // Historievenster-chips
+        val windowOptions = listOf(
+            15 to R.string.window_15m, 30 to R.string.window_30m,
+            60 to R.string.window_1h, 180 to R.string.window_3h,
+            360 to R.string.window_6h, 720 to R.string.window_12h,
+            1440 to R.string.window_24h
+        )
+        for ((minutes, labelRes) in windowOptions) {
+            val chip = Chip(this).apply {
+                text = getString(labelRes)
+                isCheckable = true
+                isChecked = f.windowMinutes == minutes
+                setOnCheckedChangeListener { _, checked ->
+                    if (checked) viewModel.setWindowMinutes(minutes)
+                }
+            }
+            sheetBinding.chipGroupWindow.addView(chip)
+        }
+
+        // Achtergrond-verversing
+        sheetBinding.switchBackground.isChecked = prefs.backgroundEnabled
+        sheetBinding.switchBackground.setOnCheckedChangeListener { _, checked ->
+            prefs.backgroundEnabled = checked
+            if (checked) {
+                if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                    ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED
+                ) {
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    startPollService()
+                }
+            } else {
+                stopService(Intent(this, PollService::class.java))
+            }
+        }
+
         sheetBinding.buttonClearFilters.setOnClickListener {
             viewModel.setLocationQuery("")
             viewModel.setRadiusKm(0)
+            viewModel.setWindowMinutes(1440)
             dialog.dismiss()
         }
         dialog.show()
+    }
+
+    private fun startPollService() {
+        ContextCompat.startForegroundService(this, Intent(this, PollService::class.java))
     }
 
     private fun radiusLabel(km: Int) =
@@ -330,6 +393,12 @@ class MainActivity : AppCompatActivity() {
         }
         if (f.locationQuery.isNotEmpty()) parts.add("“${f.locationQuery}”")
         if (f.radiusKm > 0) parts.add(getString(R.string.radius_km, f.radiusKm))
+        if (f.windowMinutes < 1440) {
+            parts.add(
+                if (f.windowMinutes < 60) "${f.windowMinutes} min terug"
+                else "${f.windowMinutes / 60} uur terug"
+            )
+        }
         return if (parts.isEmpty()) getString(R.string.filter_none) else parts.joinToString(" · ")
     }
 

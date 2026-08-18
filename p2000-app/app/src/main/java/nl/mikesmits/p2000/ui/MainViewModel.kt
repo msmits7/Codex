@@ -6,20 +6,24 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.launch
+import nl.mikesmits.p2000.PollService
 import nl.mikesmits.p2000.data.Melding
-import nl.mikesmits.p2000.data.MeldingRepository
+import nl.mikesmits.p2000.data.MeldingGroep
+import nl.mikesmits.p2000.data.P2000Data
 import nl.mikesmits.p2000.data.Prefs
 import nl.mikesmits.p2000.data.ServiceType
+import kotlin.math.abs
 
 data class FilterState(
     val types: Set<ServiceType> = ServiceType.values().toSet(),
     val locationQuery: String = "",
     val radiusKm: Int = 0,              // 0 = radius filter off
+    val windowMinutes: Int = 1440,      // hoe ver terugkijken; 1440 = volledige 24u-historie
     val myLocation: Location? = null
 ) {
     val radiusActive: Boolean get() = radiusKm > 0 && myLocation != null
@@ -27,7 +31,13 @@ data class FilterState(
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
-    private val repository = MeldingRepository()
+    companion object {
+        private const val GROUP_WINDOW_MS = 15 * 60 * 1000L
+        private const val POLL_INTERVAL_MS = 15_000L
+        private const val UI_REFRESH_MS = 5_000L
+    }
+
+    private val repository = P2000Data.also { it.init(application) }.repository
     private val prefs = Prefs(application)
 
     private val _all = MutableStateFlow<List<Melding>>(emptyList())
@@ -35,7 +45,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         FilterState(
             types = prefs.filterTypes,
             locationQuery = prefs.locationQuery,
-            radiusKm = prefs.radiusKm
+            radiusKm = prefs.radiusKm,
+            windowMinutes = prefs.windowMinutes
         )
     )
     private val _status = MutableStateFlow("Laden…")
@@ -43,24 +54,33 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val filter: StateFlow<FilterState> = _filter
     val status: StateFlow<String> = _status
 
-    val filtered: StateFlow<List<Melding>> =
-        combine(_all, _filter) { all, f -> applyFilter(all, f) }
+    /** Gefilterde meldingen, gebundeld per incident. */
+    val groups: StateFlow<List<MeldingGroep>> =
+        combine(_all, _filter) { all, f -> groupMeldingen(applyFilter(all, f)) }
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         viewModelScope.launch {
+            repository.ensureLoaded()
+            _all.value = repository.current()
+            var lastFetch = 0L
             while (true) {
-                try {
-                    _all.value = repository.refresh()
-                    _status.value = "Live · ${_all.value.size} meldingen"
-                    // Geocode in the background; push updates as coordinates come in.
-                    if (repository.geocodeMissing(_all.value)) {
-                        _all.value = repository.current()
+                val now = System.currentTimeMillis()
+                // De achtergrond-service ververst zelf; dan alleen de UI bijwerken.
+                if (!PollService.running && now - lastFetch >= POLL_INTERVAL_MS) {
+                    lastFetch = now
+                    try {
+                        repository.refresh()
+                        repository.geocodeMissing(repository.current())
+                    } catch (_: Exception) {
+                        _status.value = "Geen verbinding – opnieuw proberen…"
+                        delay(UI_REFRESH_MS)
+                        continue
                     }
-                } catch (e: Exception) {
-                    _status.value = "Geen verbinding – opnieuw proberen…"
                 }
-                delay(30_000)
+                _all.value = repository.current()
+                _status.value = "Live · ${_all.value.size} meldingen (24u)"
+                delay(UI_REFRESH_MS)
             }
         }
     }
@@ -68,11 +88,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun refreshNow() {
         viewModelScope.launch {
             try {
-                _all.value = repository.refresh()
-                _status.value = "Live · ${_all.value.size} meldingen"
-                if (repository.geocodeMissing(_all.value)) {
-                    _all.value = repository.current()
-                }
+                repository.refresh()
+                repository.geocodeMissing(repository.current())
+                _all.value = repository.current()
+                _status.value = "Live · ${_all.value.size} meldingen (24u)"
             } catch (_: Exception) {
                 _status.value = "Geen verbinding – opnieuw proberen…"
             }
@@ -96,12 +115,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.radiusKm = km
     }
 
+    fun setWindowMinutes(minutes: Int) {
+        _filter.value = _filter.value.copy(windowMinutes = minutes)
+        prefs.windowMinutes = minutes
+    }
+
     fun setMyLocation(location: Location?) {
         _filter.value = _filter.value.copy(myLocation = location)
     }
 
     private fun applyFilter(all: List<Melding>, f: FilterState): List<Melding> {
+        val cutoff = System.currentTimeMillis() - f.windowMinutes * 60_000L
         return all.filter { m ->
+            if (m.time.time < cutoff) return@filter false
             if (m.type !in f.types) return@filter false
             if (f.locationQuery.isNotEmpty()) {
                 val q = f.locationQuery.lowercase()
@@ -120,5 +146,30 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             true
         }
+    }
+
+    /**
+     * Bundel meldingen van hetzelfde incident: zelfde locatiesleutel en dicht
+     * bij elkaar in de tijd. De lijst komt binnen op volgorde nieuwste eerst.
+     */
+    private fun groupMeldingen(list: List<Melding>): List<MeldingGroep> {
+        val result = mutableListOf<MutableList<Melding>>()
+        val byKey = HashMap<String, MutableList<MutableList<Melding>>>()
+        for (m in list) {
+            val key = m.groupKey
+            if (key != null) {
+                val target = byKey[key]?.firstOrNull { g ->
+                    abs(g.last().time.time - m.time.time) <= GROUP_WINDOW_MS
+                }
+                if (target != null) {
+                    target.add(m)
+                    continue
+                }
+            }
+            val group = mutableListOf(m)
+            result.add(group)
+            if (key != null) byKey.getOrPut(key) { mutableListOf() }.add(group)
+        }
+        return result.map { MeldingGroep(it) }
     }
 }
