@@ -210,7 +210,6 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(sheetBinding.root)
 
         val dateFormat = SimpleDateFormat("EEEE d MMMM yyyy · HH:mm:ss", Locale("nl", "NL"))
-        val timeFormat = SimpleDateFormat("HH:mm:ss", Locale.getDefault())
 
         sheetBinding.detailIcon.setImageResource(MeldingAdapter.iconFor(m.type))
         sheetBinding.detailIcon.backgroundTintList =
@@ -253,10 +252,13 @@ class MainActivity : AppCompatActivity() {
         sheetBinding.detailDossier.visibility = if (g.dossier != null) View.VISIBLE else View.GONE
         sheetBinding.detailDossier.text = g.dossier ?: ""
 
-        // Alle pagerteksten van dit incident, nieuwste eerst
-        sheetBinding.detailRaw.text = g.meldingen.joinToString("\n\n") { melding ->
-            "${timeFormat.format(melding.time)} · ${melding.type.label}\n${melding.rawTitle}"
+        // Elke opgeroepen dienst als eigen ingesprongen regel met pagertekst
+        sheetBinding.detailSubHeader.text = if (g.meldingen.size > 1) {
+            getString(R.string.detail_gekoppeld_count, g.meldingen.size)
+        } else {
+            getString(R.string.detail_raw_title)
         }
+        SubMeldingBinder.bind(sheetBinding.detailSubContainer, g.meldingen, showRaw = true)
 
         sheetBinding.buttonShowOnMap.isEnabled = g.lat != null
         sheetBinding.buttonShowOnMap.setOnClickListener {

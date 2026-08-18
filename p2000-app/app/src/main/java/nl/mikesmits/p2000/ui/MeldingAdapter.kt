@@ -43,6 +43,15 @@ class MeldingAdapter(
             " · " + ctx.getString(R.string.group_count, g.meldingen.size)
         } else ""
         holder.binding.textLocation.text = m.locationLabel + extra
+
+        // Bij meerdere diensten op hetzelfde incident: elke dienst ingesprongen eronder
+        if (g.meldingen.size > 1) {
+            holder.binding.containerSub.visibility = android.view.View.VISIBLE
+            SubMeldingBinder.bind(holder.binding.containerSub, g.meldingen, showRaw = false)
+        } else {
+            holder.binding.containerSub.visibility = android.view.View.GONE
+            holder.binding.containerSub.removeAllViews()
+        }
         holder.binding.textTime.text = timeFormat.format(m.time)
         holder.binding.iconType.setImageResource(iconFor(m.type))
         holder.binding.iconType.backgroundTintList =

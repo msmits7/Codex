@@ -29,6 +29,7 @@
     <string name="detail_dia">Directe inzet ambulance (DIA)</string>
     <string name="group_count">%d meldingen</string>
     <string name="detail_gekoppeld">Gekoppelde meldingen voor dit incident</string>
+    <string name="detail_gekoppeld_count">Opgeroepen diensten (%d meldingen)</string>
     <string name="filter_window_title">Historie – hoe ver terugkijken</string>
     <string name="filter_background">Op de achtergrond blijven verversen</string>
     <string name="filter_background_helper">Houdt de historie bij via een stille melding, ook als de app dicht is</string>

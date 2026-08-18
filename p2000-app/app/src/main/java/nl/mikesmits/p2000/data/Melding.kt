@@ -50,11 +50,17 @@ data class Melding(
      */
     val groupKey: String?
         get() = when {
-            street != null && city != null -> "s|${street.lowercase()}|${city.lowercase()}"
+            street != null && city != null -> "s|${norm(street)}|${norm(city)}"
             postcode != null -> "p|$postcode"
-            city != null && aard != null -> "a|${city.lowercase()}|${aard.lowercase()}"
+            city != null && aard != null -> "a|${norm(city)}|${norm(aard)}"
             else -> null
         }
+
+    /** Losse leestekens en spaties wegstrepen zodat diensten die dezelfde
+     *  straat net anders schrijven ("H. de Lintweg" / "H de Lintweg") toch
+     *  op hetzelfde incident uitkomen. */
+    private fun norm(value: String): String =
+        value.lowercase().filter { it.isLetterOrDigit() }
 }
 
 /** Eén incident: alle meldingen (mogelijk van meerdere diensten) gebundeld. */

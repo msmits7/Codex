@@ -102,6 +102,7 @@
             android:textAppearance="?attr/textAppearanceBodyMedium" />
 
         <TextView
+            android:id="@+id/detailSubHeader"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="14dp"
@@ -117,13 +118,13 @@
             app:cardElevation="0dp"
             app:cardBackgroundColor="?attr/colorSurfaceVariant">
 
-            <TextView
-                android:id="@+id/detailRaw"
+            <!-- Eén ingesprongen blok per opgeroepen dienst -->
+            <LinearLayout
+                android:id="@+id/detailSubContainer"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="12dp"
-                android:fontFamily="monospace"
-                android:textAppearance="?attr/textAppearanceBodySmall" />
+                android:orientation="vertical"
+                android:padding="12dp" />
         </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
