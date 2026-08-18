@@ -23,13 +23,20 @@ import nl.mikesmits.p2000.data.ServiceType
 import kotlin.math.abs
 
 data class FilterState(
-    val types: Set<ServiceType> = ServiceType.values().toSet(),
+    /** Aangevinkte types; leeg betekent geen typefilter (alles tonen). */
+    val types: Set<ServiceType> = emptySet(),
     val locationQuery: String = "",
     val radiusKm: Int = 0,              // 0 = radius filter off
     val windowMinutes: Int = 1440,      // hoe ver terugkijken; 1440 = volledige 24u-historie
     val myLocation: Location? = null
 ) {
     val radiusActive: Boolean get() = radiusKm > 0 && myLocation != null
+
+    /**
+     * Een type is zichtbaar als er niets is aangevinkt (geen filter) of als dit
+     * type juist wél is aangevinkt. Aanvinken betekent dus "alleen dit tonen".
+     */
+    fun matchesType(type: ServiceType): Boolean = types.isEmpty() || type in types
 }
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
@@ -66,6 +73,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    /** Losse stroom voor het RSS-tabblad: alleen politieberichten. */
+    val rssItems: StateFlow<List<MeldingGroep>> =
+        combine(_all, _filter) { all, f ->
+            val cutoff = System.currentTimeMillis() - f.windowMinutes * 60_000L
+            all.asSequence()
+                .filter { it.type == ServiceType.POLITIEBERICHT && it.time.time >= cutoff }
+                .filter { m ->
+                    f.locationQuery.isEmpty() || listOfNotNull(m.city, m.rawTitle, m.description)
+                        .joinToString(" ").lowercase().contains(f.locationQuery.lowercase())
+                }
+                .map { MeldingGroep(listOf(it)) }
+                .toList()
+        }
+            .flowOn(Dispatchers.Default)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     init {
         viewModelScope.launch {
             repository.ensureLoaded()
@@ -97,7 +120,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (snapshot != _all.value) {
             _all.value = snapshot
         }
-        _status.value = "Live · ${snapshot.size} meldingen (24u)"
+        _status.value = "Live · ${snapshot.size} meldingen"
     }
 
     fun refreshNow() {
@@ -117,6 +140,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (enabled) current.add(type) else current.remove(type)
         _filter.value = _filter.value.copy(types = current)
         prefs.filterTypes = current
+    }
+
+    /** Alle typefilters uitzetten (= alles tonen). */
+    fun clearTypes() {
+        _filter.value = _filter.value.copy(types = emptySet())
+        prefs.filterTypes = emptySet()
     }
 
     fun setLocationQuery(query: String) {
@@ -142,7 +171,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val cutoff = System.currentTimeMillis() - f.windowMinutes * 60_000L
         return all.filter { m ->
             if (m.time.time < cutoff) return@filter false
-            if (m.type !in f.types) return@filter false
+            if (!f.matchesType(m.type)) return@filter false
             if (f.locationQuery.isNotEmpty()) {
                 val q = f.locationQuery.lowercase()
                 val haystack = listOfNotNull(m.city, m.street, m.region, m.province, m.postcode, m.rawTitle)

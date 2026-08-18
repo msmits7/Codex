@@ -49,6 +49,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     private val viewModel: MainViewModel by viewModels()
     private val adapter = MeldingAdapter { groep -> showDetailSheet(groep) }
+    private val rssAdapter = MeldingAdapter { groep -> showDetailSheet(groep) }
     private val markers = mutableListOf<Marker>()
     private val markerByGuid = mutableMapOf<String, Marker>()
     private var lastMarkerSignature: List<String>? = null
@@ -60,9 +61,9 @@ class MainActivity : AppCompatActivity() {
         private const val MAX_MAP_MARKERS = 500
     }
 
-    /** True on foldables/tablets (sw600dp layout): list and map are shown side by side. */
+    /** True op foldables/tablets (w600dp): lijst en kaart staan naast elkaar. */
     private val isDualPane: Boolean
-        get() = binding.bottomNav.visibility == View.GONE
+        get() = resources.getBoolean(R.bool.is_dual_pane)
     private var pendingRadiusKm: Int? = null
 
     private val notificationPermissionLauncher =
@@ -93,6 +94,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupList()
+        setupRss()
         setupMap()
         setupTypeChips()
         setupNavigation()
@@ -123,6 +125,13 @@ class MainActivity : AppCompatActivity() {
                         updateMapMarkers(list)
                     }
                 }
+                launch {
+                    viewModel.rssItems.collect { list ->
+                        rssAdapter.submitList(list)
+                        binding.textEmptyRss.visibility =
+                            if (list.isEmpty()) View.VISIBLE else View.GONE
+                    }
+                }
                 launch { viewModel.status.collect { binding.textStatus.text = it } }
                 launch {
                     viewModel.filter.collect { f ->
@@ -140,6 +149,11 @@ class MainActivity : AppCompatActivity() {
             viewModel.refreshNow()
             binding.swipeRefresh.isRefreshing = false
         }
+    }
+
+    private fun setupRss() {
+        binding.recyclerRss.layoutManager = LinearLayoutManager(this)
+        binding.recyclerRss.adapter = rssAdapter
     }
 
     private fun setupMap() {
@@ -161,6 +175,7 @@ class MainActivity : AppCompatActivity() {
             val chip = Chip(this).apply {
                 text = type.label
                 isCheckable = true
+                // Aangevinkt = alleen dit type tonen; niets aangevinkt = alles
                 isChecked = type in activeTypes
                 setChipIconResource(MeldingAdapter.iconFor(type))
                 isChipIconVisible = true
@@ -196,12 +211,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupNavigation() {
+        // In two-pane staat de kaart al naast de lijst; dat tabblad is dan overbodig
+        binding.bottomNav.menu.findItem(R.id.nav_map).isVisible = !isDualPane
         binding.bottomNav.setOnItemSelectedListener { item ->
-            val showMap = item.itemId == R.id.nav_map
-            binding.mapContainer.visibility = if (showMap) View.VISIBLE else View.GONE
-            binding.listContainer.visibility = if (showMap) View.GONE else View.VISIBLE
+            when (item.itemId) {
+                R.id.nav_map -> showPanes(list = false, map = true, rss = false)
+                R.id.nav_rss -> showPanes(list = false, map = false, rss = true)
+                else -> showPanes(list = true, map = isDualPane, rss = false)
+            }
             true
         }
+        showPanes(list = true, map = isDualPane, rss = false)
+    }
+
+    private fun showPanes(list: Boolean, map: Boolean, rss: Boolean) {
+        binding.listContainer.visibility = if (list) View.VISIBLE else View.GONE
+        binding.mapContainer.visibility = if (map) View.VISIBLE else View.GONE
+        binding.rssContainer.visibility = if (rss) View.VISIBLE else View.GONE
     }
 
     private fun showDetailSheet(g: MeldingGroep) {
@@ -387,7 +413,8 @@ class MainActivity : AppCompatActivity() {
             15 to R.string.window_15m, 30 to R.string.window_30m,
             60 to R.string.window_1h, 180 to R.string.window_3h,
             360 to R.string.window_6h, 720 to R.string.window_12h,
-            1440 to R.string.window_24h
+            1440 to R.string.window_24h, 2880 to R.string.window_48h,
+            4320 to R.string.window_72h, 10080 to R.string.window_1w
         )
         for ((minutes, labelRes) in windowOptions) {
             val chip = Chip(this).apply {
@@ -420,6 +447,10 @@ class MainActivity : AppCompatActivity() {
         }
 
         sheetBinding.buttonClearFilters.setOnClickListener {
+            viewModel.clearTypes()
+            for (i in 0 until binding.chipGroupTypes.childCount) {
+                (binding.chipGroupTypes.getChildAt(i) as? Chip)?.isChecked = false
+            }
             viewModel.setLocationQuery("")
             viewModel.setRadiusKm(0)
             viewModel.setWindowMinutes(1440)
@@ -458,15 +489,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun buildFilterSummary(f: FilterState): String {
         val parts = mutableListOf<String>()
-        if (f.types.size < ServiceType.values().size) {
-            parts.add(f.types.joinToString(", ") { it.label })
+        if (f.types.isNotEmpty()) {
+            parts.add("alleen " + f.types.joinToString(", ") { it.label })
         }
         if (f.locationQuery.isNotEmpty()) parts.add("“${f.locationQuery}”")
         if (f.radiusKm > 0) parts.add(getString(R.string.radius_km, f.radiusKm))
-        if (f.windowMinutes < 1440) {
+        if (f.windowMinutes != 1440) {
             parts.add(
-                if (f.windowMinutes < 60) "${f.windowMinutes} min terug"
-                else "${f.windowMinutes / 60} uur terug"
+                when {
+                    f.windowMinutes < 60 -> "${f.windowMinutes} min terug"
+                    f.windowMinutes < 2880 -> "${f.windowMinutes / 60} uur terug"
+                    f.windowMinutes >= 10080 -> "1 week terug"
+                    else -> "${f.windowMinutes / 1440} dagen terug"
+                }
             )
         }
         return if (parts.isEmpty()) getString(R.string.filter_none) else parts.joinToString(" · ")

@@ -74,7 +74,7 @@
         android:orientation="horizontal"
         android:baselineAligned="false"
         app:layout_constraintTop_toBottomOf="@id/header"
-        app:layout_constraintBottom_toBottomOf="parent">
+        app:layout_constraintBottom_toTopOf="@id/bottomNav">
 
         <FrameLayout
             android:id="@+id/listContainer"
@@ -124,12 +124,40 @@
         </FrameLayout>
     </LinearLayout>
 
-    <!-- Niet nodig in two-pane; aanwezig zodat ViewBinding overal dezelfde types houdt -->
+    <FrameLayout
+        android:id="@+id/rssContainer"
+        android:background="?attr/colorSurfaceContainerLow"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/header"
+        app:layout_constraintBottom_toTopOf="@id/bottomNav">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerRss"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="8dp" />
+
+        <TextView
+            android:id="@+id/textEmptyRss"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:layout_margin="24dp"
+            android:gravity="center"
+            android:text="@string/empty_rss"
+            android:textAppearance="?attr/textAppearanceBodyMedium"
+            android:visibility="gone" />
+    </FrameLayout>
+
+    <!-- In two-pane blijft de balk zichtbaar voor het RSS-tabblad; het
+         kaart-item wordt daar verborgen omdat de kaart al naast de lijst staat -->
     <com.google.android.material.bottomnavigation.BottomNavigationView
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:visibility="gone"
         app:menu="@menu/bottom_nav"
         app:layout_constraintBottom_toBottomOf="parent" />
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -21,9 +21,11 @@ class MeldingRepository(private val store: HistoryStore? = null) {
             "https://rss.politie.nl/rss/algemeen/nb/alle-nieuwsberichten.xml" to "Politienieuws"
         )
         private const val POLITIE_INTERVAL_MS = 5 * 60 * 1000L
-        private const val MAX_AGE_MS = 24 * 60 * 60 * 1000L
-        private const val MAX_ITEMS = 20000
-        private const val SAVE_INTERVAL_MS = 60_000L
+        /** Historie tot een week terug, zodat de langere tijdfilters werken. */
+        private const val MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000L
+        private const val MAX_ITEMS = 60000
+        private const val MAX_POLITIEBERICHTEN = 500
+        private const val SAVE_INTERVAL_MS = 3 * 60 * 1000L
     }
 
     private val byGuid = LinkedHashMap<String, Melding>()
@@ -119,9 +121,15 @@ class MeldingRepository(private val store: HistoryStore? = null) {
 
     private fun pruneAndSort(): List<Melding> {
         val cutoff = System.currentTimeMillis() - MAX_AGE_MS
+        // Politieberichten (opsporing/vermist) gaan vaak over oudere zaken en
+        // blijven daarom staan, met een eigen bovengrens.
+        var politieOver = MAX_POLITIEBERICHTEN
         val sorted = byGuid.values
-            .filter { it.time.time >= cutoff }
             .sortedByDescending { it.time }
+            .filter { m ->
+                if (m.type == ServiceType.POLITIEBERICHT) politieOver-- > 0
+                else m.time.time >= cutoff
+            }
             .take(MAX_ITEMS)
         if (sorted.size != byGuid.size) {
             byGuid.clear()

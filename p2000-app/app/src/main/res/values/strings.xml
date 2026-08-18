@@ -12,7 +12,9 @@
     <string name="radius_km">%d km</string>
     <string name="nav_list">Meldingen</string>
     <string name="nav_map">Kaart</string>
+    <string name="nav_rss">RSS</string>
     <string name="empty_list">Geen meldingen voor deze filters</string>
+    <string name="empty_rss">Nog geen politieberichten opgehaald.\nDe feeds worden elke 5 minuten ververst; zet het tijdfilter ruimer (bijv. 72 uur) om oudere berichten te zien.</string>
     <string name="location_denied">Locatietoestemming geweigerd – straalfilter uitgeschakeld</string>
     <string name="location_unavailable">Locatie niet beschikbaar – zet locatie aan en probeer opnieuw</string>
     <string name="no_coordinates">Geen kaartpositie bekend voor deze melding</string>
@@ -42,6 +44,9 @@
     <string name="window_6h">6 uur</string>
     <string name="window_12h">12 uur</string>
     <string name="window_24h">24 uur</string>
+    <string name="window_48h">48 uur</string>
+    <string name="window_72h">72 uur</string>
+    <string name="window_1w">1 week</string>
     <string name="stats_line">Cijfers data.politie.nl: in %1$s zijn in %2$s %3$d misdrijven geregistreerd</string>
     <string name="stats_soort">, waarvan %1$d %2$s</string>
     <string name="crash_title">De app is eerder gecrasht</string>

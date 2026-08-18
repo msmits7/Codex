@@ -13,15 +13,19 @@ class Prefs(context: Context) {
         get() = prefs.getInt("theme_mode", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
         set(value) = prefs.edit { putInt("theme_mode", value) }
 
+    /**
+     * Aangevinkte types. Leeg = geen typefilter, dus alles tonen. Sleutel v2:
+     * de oude opslag betekende juist "alles behalve de uitgevinkte types" en
+     * mocht daarom niet worden overgenomen.
+     */
     var filterTypes: Set<ServiceType>
         get() {
-            val saved = prefs.getStringSet("filter_types", null)
-                ?: return ServiceType.values().toSet()
+            val saved = prefs.getStringSet("filter_types_v2", null) ?: return emptySet()
             return saved.mapNotNull { name ->
                 ServiceType.values().find { it.name == name }
             }.toSet()
         }
-        set(value) = prefs.edit { putStringSet("filter_types", value.map { it.name }.toSet()) }
+        set(value) = prefs.edit { putStringSet("filter_types_v2", value.map { it.name }.toSet()) }
 
     var locationQuery: String
         get() = prefs.getString("filter_location", "") ?: ""
