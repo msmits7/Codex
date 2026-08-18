@@ -191,33 +191,44 @@ class MeldingRepository(private val store: HistoryStore? = null) {
      */
     suspend fun geocodeMissing(items: List<Melding>, limit: Int = 120): Boolean = coroutineScope {
         var changed = false
-        // Nieuwste eerst, zodat verse meldingen als eerste een positie krijgen.
-        val todo = items.filter {
-            it.geoQuery != null &&
-                (it.lat == null || (it.extent == null && it.street == null && it.postcode == null))
-        }.take(limit)
 
-        // In blokken parallel opzoeken; sequentieel duurde bij de hogere
-        // meldingsaantallen te lang, waardoor nieuwe meldingen lang zonder
-        // positie bleven staan.
-        for (blok in todo.chunked(8)) {
+        // Stap 1: plaats-omhullende. Eén opzoeking per plaatsnaam, en daarmee
+        // weet het straalfilter meteen of een melding in de buurt ligt - ook
+        // als het exacte adres nog niet is opgezocht.
+        val zonderGebied = items.filter { it.extent == null && it.city != null }.take(limit)
+        for (blok in zonderGebied.groupBy { it.city!! }.entries.chunked(6)) {
+            val boxen = blok.map { (plaats, _) ->
+                async { plaats to PdokGeocoder.plaatsExtent(plaats) }
+            }.awaitAll().toMap()
+            for ((plaats, meldingen) in blok) {
+                val box = boxen[plaats] ?: continue
+                for (m in meldingen) {
+                    if (m.extent != box) {
+                        m.extent = box
+                        changed = true
+                    }
+                }
+            }
+        }
+
+        // Stap 2: exacte positie per melding, nieuwste eerst.
+        val zonderPositie = items.filter { it.lat == null && it.geoQuery != null }.take(limit)
+        for (blok in zonderPositie.chunked(8)) {
             val uitkomsten = blok.map { m ->
                 async { m to PdokGeocoder.geocode(m.geoQuery!!) }
             }.awaitAll()
             for ((m, geo) in uitkomsten) {
                 if (geo == null) continue
-                if (m.lat != geo.lat || m.lon != geo.lon || m.extent != geo.extent ||
-                    m.gemeenteCode != geo.gemeenteCode
-                ) {
-                    m.lat = geo.lat
-                    m.lon = geo.lon
-                    m.gemeenteCode = geo.gemeenteCode
-                    m.gemeenteNaam = geo.gemeenteNaam
-                    m.extent = geo.extent
-                    changed = true
-                }
+                m.lat = geo.lat
+                m.lon = geo.lon
+                m.gemeenteCode = geo.gemeenteCode
+                m.gemeenteNaam = geo.gemeenteNaam
+                m.exacteLocatie = geo.exact
+                if (geo.extent != null) m.extent = geo.extent
+                changed = true
             }
         }
+
         if (changed) maybePersist(current())
         changed
     }

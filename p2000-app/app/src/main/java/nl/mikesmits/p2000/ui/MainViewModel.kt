@@ -49,16 +49,16 @@ data class FilterState(
         val here = myLocation ?: return true
         val meters = melding.distanceMetersFrom(here.latitude, here.longitude)
         if (meters == null) {
-            // Nog geen positie opgezocht. Verse meldingen niet stilletjes laten
-            // verdwijnen: die worden zo gegeocodeerd en vallen daarna vanzelf
-            // binnen of buiten de straal.
+            // Er is nog niets bekend over waar dit is - geen plaats, geen
+            // positie. Even laten staan zodat een verse melding niet stilletjes
+            // verdwijnt, maar kort: zodra de plaats bekend is telt de afstand.
             return System.currentTimeMillis() - melding.time.time < WACHT_OP_POSITIE_MS
         }
         return meters <= radiusKm * 1000.0
     }
 
     companion object {
-        private const val WACHT_OP_POSITIE_MS = 20 * 60 * 1000L
+        private const val WACHT_OP_POSITIE_MS = 5 * 60 * 1000L
     }
 }
 

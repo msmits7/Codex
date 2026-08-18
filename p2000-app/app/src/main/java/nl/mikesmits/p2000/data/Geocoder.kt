@@ -18,7 +18,9 @@ data class GeoResult(
     val lon: Double,
     val gemeenteCode: String?,
     val gemeenteNaam: String?,
-    val extent: Bbox? = null
+    val extent: Bbox? = null,
+    /** True bij een adres, postcode of straat; false bij plaats/gemeente. */
+    val exact: Boolean = false
 )
 
 /**
@@ -41,6 +43,28 @@ object PdokGeocoder {
         val result = fetch(query)
         cache[query] = result
         result
+    }
+
+    private val plaatsExtentCache = Collections.synchronizedMap(HashMap<String, Bbox?>())
+
+    /**
+     * Omhullende van een plaats, los van een straat. Hiermee weet de app al
+     * waar een melding ongeveer ligt vóórdat het exacte adres is opgezocht,
+     * zodat het straalfilter meteen kan beslissen.
+     */
+    suspend fun plaatsExtent(plaats: String): Bbox? = withContext(Dispatchers.IO) {
+        if (plaatsExtentCache.containsKey(plaats)) return@withContext plaatsExtentCache[plaats]
+        val box = try {
+            val q = URLEncoder.encode(plaats, "UTF-8")
+            val url = URL("$SEARCH?q=$q&rows=1&fq=type:(woonplaats OR gemeente)&fl=id")
+            val id = readJson(url)?.getJSONObject("response")?.getJSONArray("docs")
+                ?.takeIf { it.length() > 0 }?.getJSONObject(0)?.optString("id")
+            if (id.isNullOrEmpty()) null else extentFor(id)
+        } catch (_: Exception) {
+            null
+        }
+        plaatsExtentCache[plaats] = box
+        box
     }
 
     /** Bestaat deze naam als woonplaats? Geeft de officiële schrijfwijze terug. */
@@ -77,7 +101,8 @@ object PdokGeocoder {
                 lon = coords[0].toDouble(),
                 gemeenteCode = doc.optString("gemeentecode").takeIf { it.isNotEmpty() },
                 gemeenteNaam = doc.optString("gemeentenaam").takeIf { it.isNotEmpty() },
-                extent = if (type in gebiedTypes && id.isNotEmpty()) extentFor(id) else null
+                extent = if (type in gebiedTypes && id.isNotEmpty()) extentFor(id) else null,
+                exact = type !in gebiedTypes
             )
         } catch (_: Exception) {
             null

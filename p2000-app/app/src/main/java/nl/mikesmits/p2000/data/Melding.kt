@@ -37,6 +37,8 @@ data class Melding(
      *  gebruikt om cijfers bij data.politie.nl op te halen. */
     var gemeenteCode: String? = null,
     var gemeenteNaam: String? = null,
+    /** True zodra lat/lon van een adres of straat komen (en niet van een plaats). */
+    var exacteLocatie: Boolean = false,
     /** Omhullende van de plaats/gemeente als er geen exact adres bekend is;
      *  daarmee telt een gebied mee zodra het deels binnen de straal ligt. */
     var extent: Bbox? = null
@@ -48,6 +50,14 @@ data class Melding(
      * als het punt er middenin ligt.
      */
     fun distanceMetersFrom(lat: Double, lon: Double): Double? {
+        // Exact adres bekend: dat is het nauwkeurigst.
+        if (exacteLocatie) {
+            val mLat = this.lat
+            val mLon = this.lon
+            if (mLat != null && mLon != null) return GeoUtils.distance(lat, lon, mLat, mLon)
+        }
+        // Anders de omhullende van de plaats/gemeente; die is er vaak al
+        // voordat het exacte adres is opgezocht.
         extent?.let { return GeoUtils.distanceToBox(lat, lon, it) }
         val mLat = this.lat ?: return null
         val mLon = this.lon ?: return null
