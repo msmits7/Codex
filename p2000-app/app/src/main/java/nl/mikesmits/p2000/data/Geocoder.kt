@@ -67,6 +67,28 @@ object PdokGeocoder {
         box
     }
 
+    private val provincieExtentCache = Collections.synchronizedMap(HashMap<String, Bbox?>())
+
+    /**
+     * Omhullende van een provincie. Grove terugval voor meldingen waarvan de
+     * plaatsnaam niet te herleiden is; genoeg om te zien of ze überhaupt in de
+     * buurt kunnen liggen.
+     */
+    suspend fun provincieExtent(provincie: String): Bbox? = withContext(Dispatchers.IO) {
+        if (provincieExtentCache.containsKey(provincie)) return@withContext provincieExtentCache[provincie]
+        val box = try {
+            val q = URLEncoder.encode(provincie, "UTF-8")
+            val url = URL("$SEARCH?q=$q&rows=1&fq=type:provincie&fl=id")
+            val id = readJson(url)?.getJSONObject("response")?.getJSONArray("docs")
+                ?.takeIf { it.length() > 0 }?.getJSONObject(0)?.optString("id")
+            if (id.isNullOrEmpty()) null else extentFor(id)
+        } catch (_: Exception) {
+            null
+        }
+        provincieExtentCache[provincie] = box
+        box
+    }
+
     /** Bestaat deze naam als woonplaats? Geeft de officiële schrijfwijze terug. */
     suspend fun woonplaatsNaam(naam: String): String? = withContext(Dispatchers.IO) {
         try {

@@ -64,6 +64,7 @@ class MeldingRepository(private val store: HistoryStore? = null) {
         conn.readTimeout = 15000
         conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
         val fresh = conn.inputStream.use { FeedParser.parse(it) }
+        Diagnostics.log("alarmeringen.nl: ${fresh.size} meldingen")
         val politie = fetchPolitieFeeds()
         // Eerst de rijk geparseerde feed samenvoegen, daarna de bredere bron;
         // dubbele meldingen worden op ritnummer herkend en overgeslagen.
@@ -72,6 +73,12 @@ class MeldingRepository(private val store: HistoryStore? = null) {
             merge(politie)
         }
         val online = fetchP2000Online()
+        if (online.isNotEmpty()) {
+            val zonderPlaats = online.count { it.city == null }
+            Diagnostics.log(
+                "p2000-online.net: ${online.size} meldingen, ${zonderPlaats} zonder herleidbare plaats"
+            )
+        }
         val result = synchronized(byGuid) {
             merge(online)
             pruneAndSort()
@@ -119,8 +126,9 @@ class MeldingRepository(private val store: HistoryStore? = null) {
                 conn.readTimeout = 15000
                 conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
                 conn.inputStream.use { all += PolitieFeedParser.parse(it, aard) }
-            }
+            }.onFailure { Diagnostics.log("politie-feed mislukt: ${it.javaClass.simpleName}") }
         }
+        if (all.isNotEmpty()) Diagnostics.log("politie.nl: ${all.size} berichten")
         return all
     }
 
@@ -139,7 +147,11 @@ class MeldingRepository(private val store: HistoryStore? = null) {
             conn.readTimeout = 15000
             conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
             conn.inputStream.bufferedReader(Charsets.ISO_8859_1).use { it.readText() }
-        }.getOrNull() ?: return emptyList()
+        }.getOrNull()
+        if (html == null) {
+            Diagnostics.log("p2000-online.net niet bereikbaar")
+            return emptyList()
+        }
 
         return P2000OnlineParser.parse(html).map { ruw ->
             val treffer: Pair<String, String>? = PlaatsCodes.kandidaten(ruw.tekst)
@@ -211,6 +223,22 @@ class MeldingRepository(private val store: HistoryStore? = null) {
             }
         }
 
+        // Stap 1b: nog geen gebied? Dan de provincie van de veiligheidsregio.
+        // Grof, maar genoeg om te zien of iets uberhaupt in de buurt ligt.
+        val zonderPlaats = items.filter { it.extent == null && it.lat == null }.take(limit)
+        val perProvincie = zonderPlaats.groupBy {
+            Veiligheidsregios.provincie(it.region) ?: Veiligheidsregios.provincie(it.province)
+        }.filterKeys { it != null }
+        for ((provincie, meldingen) in perProvincie) {
+            val box = PdokGeocoder.provincieExtent(provincie!!) ?: continue
+            for (m in meldingen) {
+                if (m.extent == null) {
+                    m.extent = box
+                    changed = true
+                }
+            }
+        }
+
         // Stap 2: exacte positie per melding, nieuwste eerst.
         val zonderPositie = items.filter { it.lat == null && it.geoQuery != null }.take(limit)
         for (blok in zonderPositie.chunked(8)) {
@@ -230,6 +258,10 @@ class MeldingRepository(private val store: HistoryStore? = null) {
         }
 
         if (changed) maybePersist(current())
+        Diagnostics.log(
+            "locaties opgezocht: ${zonderGebied.size} via plaats, " +
+                "${zonderPlaats.size} via provincie, ${zonderPositie.size} exact"
+        )
         changed
     }
 

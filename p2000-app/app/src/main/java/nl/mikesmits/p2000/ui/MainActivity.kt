@@ -448,6 +448,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        sheetBinding.buttonLog.setOnClickListener {
+            dialog.dismiss()
+            toonDiagnose()
+        }
+
         sheetBinding.buttonClearFilters.setOnClickListener {
             viewModel.clearTypes()
             for (i in 0 until binding.chipGroupTypes.childCount) {
@@ -459,6 +464,39 @@ class MainActivity : AppCompatActivity() {
             dialog.dismiss()
         }
         dialog.show()
+    }
+
+    /** Diagnoserapport tonen met knoppen om te kopiëren of te delen. */
+    private fun toonDiagnose() {
+        val rapport = viewModel.diagnoseRapport()
+        val weergave = android.widget.TextView(this).apply {
+            text = rapport
+            typeface = android.graphics.Typeface.MONOSPACE
+            textSize = 10f
+            setTextIsSelectable(true)
+            val p = (12 * resources.displayMetrics.density).toInt()
+            setPadding(p, p, p, p)
+        }
+        val scroll = android.widget.ScrollView(this).apply { addView(weergave) }
+
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.log_titel)
+            .setView(scroll)
+            .setPositiveButton(R.string.log_kopieren) { _, _ ->
+                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("P2000 diagnose", rapport))
+                Toast.makeText(this, R.string.log_gekopieerd, Toast.LENGTH_SHORT).show()
+            }
+            .setNeutralButton(R.string.log_delen) { _, _ ->
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "P2000 Live diagnose")
+                    putExtra(Intent.EXTRA_TEXT, rapport)
+                }
+                runCatching { startActivity(Intent.createChooser(send, null)) }
+            }
+            .setNegativeButton(R.string.crash_dismiss, null)
+            .show()
     }
 
     private fun startPollService() {

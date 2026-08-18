@@ -14,12 +14,17 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import nl.mikesmits.p2000.BuildConfig
 import nl.mikesmits.p2000.PollService
+import nl.mikesmits.p2000.data.Diagnostics
 import nl.mikesmits.p2000.data.Melding
 import nl.mikesmits.p2000.data.MeldingGroep
 import nl.mikesmits.p2000.data.P2000Data
 import nl.mikesmits.p2000.data.Prefs
 import nl.mikesmits.p2000.data.ServiceType
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import kotlin.math.abs
 
 data class FilterState(
@@ -189,6 +194,71 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setMyLocation(location: Location?) {
         _filter.value = _filter.value.copy(myLocation = location)
+    }
+
+    /**
+     * Leesbaar overzicht van wat de app binnenkrijgt en waarom meldingen wel of
+     * niet door het filter komen - bedoeld om te kopiëren bij een probleem.
+     */
+    fun diagnoseRapport(): String = buildString {
+        val f = _filter.value
+        val alle = _all.value
+        val klok = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault())
+
+        appendLine("P2000 Live diagnose")
+        appendLine("versie ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+        appendLine("tijd ${klok.format(Date())}")
+        appendLine()
+
+        appendLine("FILTERS")
+        appendLine("  types: " + if (f.types.isEmpty()) "alles" else f.types.joinToString { it.label })
+        appendLine("  zoektekst: " + f.locationQuery.ifEmpty { "-" })
+        appendLine("  straal: " + if (f.radiusKm == 0) "uit" else "${f.radiusKm} km")
+        appendLine("  historie: ${f.windowMinutes} minuten")
+        appendLine("  mijn locatie: " + (f.myLocation?.let {
+            String.format(Locale.US, "%.4f, %.4f (±%.0f m)", it.latitude, it.longitude, it.accuracy)
+        } ?: "onbekend"))
+        appendLine("  achtergrondservice: " + if (PollService.running) "aan" else "uit")
+        appendLine()
+
+        appendLine("MELDINGEN")
+        appendLine("  in geheugen: ${alle.size}")
+        appendLine("  na filter: ${groups.value.sumOf { it.meldingen.size }} in ${groups.value.size} incidenten")
+        appendLine("  per bron: " + alle.groupingBy { it.bron }.eachCount()
+            .entries.joinToString { "${it.key}=${it.value}" }.ifEmpty { "-" })
+        appendLine("  per type: " + alle.groupingBy { it.type.label }.eachCount()
+            .entries.joinToString { "${it.key}=${it.value}" }.ifEmpty { "-" })
+        appendLine("  exacte locatie: ${alle.count { it.exacteLocatie }}")
+        appendLine("  alleen gebied: ${alle.count { !it.exacteLocatie && it.extent != null }}")
+        appendLine("  locatie onbekend: ${alle.count { !it.exacteLocatie && it.extent == null && it.lat == null }}")
+        appendLine()
+
+        appendLine("LAATSTE 20 MELDINGEN (afstand vanaf mijn locatie)")
+        val hier = f.myLocation
+        for (m in alle.take(20)) {
+            val afstand = hier?.let { m.distanceMetersFrom(it.latitude, it.longitude) }
+            val afstandTekst = when {
+                hier == null -> "geen locatie"
+                afstand == null -> "ONBEKEND"
+                else -> String.format(Locale.US, "%.1f km", afstand / 1000)
+            }
+            val soort = when {
+                m.exacteLocatie -> "adres"
+                m.extent != null -> "gebied"
+                else -> "geen"
+            }
+            val zichtbaar = if (f.withinRadius(m) && f.matchesType(m.type)) "TOON" else "weg "
+            appendLine(
+                "  $zichtbaar ${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(m.time)} " +
+                    "${m.type.label} ${m.prio ?: "-"} | ${m.city ?: "?"} / ${m.region ?: "?"} " +
+                    "| $afstandTekst ($soort) | ${m.bron}"
+            )
+            appendLine("        ${m.rawTitle.take(90)}")
+        }
+        appendLine()
+
+        appendLine("LOGBOEK")
+        Diagnostics.recent().forEach { appendLine("  $it") }
     }
 
     private fun applyFilter(all: List<Melding>, f: FilterState): List<Melding> {
