@@ -29,6 +29,7 @@ import nl.mikesmits.p2000.R
 import nl.mikesmits.p2000.PollService
 import nl.mikesmits.p2000.data.AardExtractor
 import nl.mikesmits.p2000.data.MeldingGroep
+import nl.mikesmits.p2000.data.PolitieStats
 import nl.mikesmits.p2000.data.Prefs
 import nl.mikesmits.p2000.data.ServiceType
 import nl.mikesmits.p2000.databinding.ActivityMainBinding
@@ -260,6 +261,27 @@ class MainActivity : AppCompatActivity() {
         }
         SubMeldingBinder.bind(sheetBinding.detailSubContainer, g.meldingen, showRaw = true)
 
+        // Verrijk achteraf met gemeentecijfers van data.politie.nl
+        val gemeenteCode = g.meldingen.firstNotNullOfOrNull { it.gemeenteCode }
+        val gemeenteNaam = g.meldingen.firstNotNullOfOrNull { it.gemeenteNaam }
+        if (gemeenteCode != null && gemeenteNaam != null) {
+            lifecycleScope.launch {
+                val stats = PolitieStats.forGemeente(gemeenteCode, gemeenteNaam, g.aard)
+                if (stats != null && dialog.isShowing) {
+                    val soort = if (stats.soortLabel != null && stats.soortAantal != null) {
+                        getString(R.string.stats_soort, stats.soortAantal, stats.soortLabel)
+                    } else ""
+                    sheetBinding.detailStats.text = getString(
+                        R.string.stats_line,
+                        stats.gemeenteNaam,
+                        stats.periodeLabel,
+                        stats.totaalMisdrijven
+                    ) + soort
+                    sheetBinding.detailStats.visibility = View.VISIBLE
+                }
+            }
+        }
+
         sheetBinding.buttonShowOnMap.isEnabled = g.lat != null
         sheetBinding.buttonShowOnMap.setOnClickListener {
             dialog.dismiss()
@@ -311,6 +333,11 @@ class MainActivity : AppCompatActivity() {
                     ContextCompat.getDrawable(this@MainActivity, iconFor(m.type))
                 }
             }
+            // Tikken op een marker opent hetzelfde detailscherm als in de lijst
+            marker.setOnMarkerClickListener { _, _ ->
+                showDetailSheet(g)
+                true
+            }
             markers.add(marker)
             markerByGuid[m.guid] = marker
             binding.map.overlays.add(marker)
@@ -324,6 +351,7 @@ class MainActivity : AppCompatActivity() {
         ServiceType.POLITIE -> R.drawable.marker_politie
         ServiceType.TRAUMA -> R.drawable.marker_trauma
         ServiceType.WATER -> R.drawable.marker_water
+        ServiceType.POLITIEBERICHT -> R.drawable.marker_politiebericht
         ServiceType.OVERIG -> R.drawable.marker_overig
     }
 

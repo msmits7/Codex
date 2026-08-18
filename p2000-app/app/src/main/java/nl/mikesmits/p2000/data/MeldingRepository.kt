@@ -13,6 +13,14 @@ class MeldingRepository(private val store: HistoryStore? = null) {
 
     companion object {
         private const val FEED_URL = "https://alarmeringen.nl/feeds/all.rss"
+
+        /** Publieke politie-feeds: getuigenoproepen, opsporing, vermisten en nieuws. */
+        private val POLITIE_FEEDS = listOf(
+            "https://rss.politie.nl/rss/algemeen/ob/alle-gezochtberichten.xml" to "Getuigenoproep / opsporing",
+            "https://rss.politie.nl/rss/algemeen/vp/alle-vermiste-personen.xml" to "Vermist persoon",
+            "https://rss.politie.nl/rss/algemeen/nb/alle-nieuwsberichten.xml" to "Politienieuws"
+        )
+        private const val POLITIE_INTERVAL_MS = 5 * 60 * 1000L
         private const val MAX_AGE_MS = 24 * 60 * 60 * 1000L
         private const val MAX_ITEMS = 20000
         private const val SAVE_INTERVAL_MS = 60_000L
@@ -21,6 +29,7 @@ class MeldingRepository(private val store: HistoryStore? = null) {
     private val byGuid = LinkedHashMap<String, Melding>()
     private var loaded = false
     private var lastSave = 0L
+    private var lastPolitieFetch = 0L
 
     /** Laad de opgeslagen historie (eenmalig, vóór het eerste gebruik). */
     suspend fun ensureLoaded() = withContext(Dispatchers.IO) {
@@ -39,30 +48,58 @@ class MeldingRepository(private val store: HistoryStore? = null) {
         conn.readTimeout = 15000
         conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
         val fresh = conn.inputStream.use { FeedParser.parse(it) }
+        val politie = fetchPolitieFeeds()
         val result = synchronized(byGuid) {
-            for (m in fresh) {
-                val existing = byGuid[m.guid]
-                if (existing != null) {
-                    // keep coordinates that were already geocoded
-                    m.lat = existing.lat
-                    m.lon = existing.lon
-                }
-                byGuid[m.guid] = m
-            }
+            merge(fresh)
+            merge(politie)
             pruneAndSort()
         }
         maybePersist(result)
         result
     }
 
+    private fun merge(fresh: List<Melding>) {
+        for (m in fresh) {
+            val existing = byGuid[m.guid]
+            if (existing != null) {
+                // bewaar wat eerder al is opgezocht
+                m.lat = existing.lat
+                m.lon = existing.lon
+                m.gemeenteCode = existing.gemeenteCode
+                m.gemeenteNaam = existing.gemeenteNaam
+            }
+            byGuid[m.guid] = m
+        }
+    }
+
+    /** Politieberichten veranderen traag; hooguit eens per 5 minuten ophalen. */
+    private fun fetchPolitieFeeds(): List<Melding> {
+        val now = System.currentTimeMillis()
+        if (now - lastPolitieFetch < POLITIE_INTERVAL_MS && lastPolitieFetch != 0L) return emptyList()
+        lastPolitieFetch = now
+        val all = mutableListOf<Melding>()
+        for ((url, aard) in POLITIE_FEEDS) {
+            runCatching {
+                val conn = URL(url).openConnection() as HttpURLConnection
+                conn.connectTimeout = 10000
+                conn.readTimeout = 15000
+                conn.setRequestProperty("User-Agent", "P2000Live/1.0 (Android)")
+                conn.inputStream.use { all += PolitieFeedParser.parse(it, aard) }
+            }
+        }
+        return all
+    }
+
     /** Geocode meldingen that don't yet have coordinates. Returns true if anything changed. */
     suspend fun geocodeMissing(items: List<Melding>, limit: Int = 25): Boolean {
         var changed = false
         for (m in items.filter { it.lat == null && it.geoQuery != null }.take(limit)) {
-            val coords = PdokGeocoder.geocode(m.geoQuery!!)
-            if (coords != null) {
-                m.lat = coords.first
-                m.lon = coords.second
+            val geo = PdokGeocoder.geocode(m.geoQuery!!)
+            if (geo != null) {
+                m.lat = geo.lat
+                m.lon = geo.lon
+                m.gemeenteCode = geo.gemeenteCode
+                m.gemeenteNaam = geo.gemeenteNaam
                 changed = true
             }
         }

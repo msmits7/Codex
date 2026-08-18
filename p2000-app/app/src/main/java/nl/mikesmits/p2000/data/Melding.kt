@@ -8,6 +8,7 @@ enum class ServiceType(val label: String) {
     POLITIE("Politie"),
     TRAUMA("Traumaheli"),
     WATER("KNRM / Water"),
+    POLITIEBERICHT("Politiebericht"),
     OVERIG("Overig");
 }
 
@@ -29,7 +30,11 @@ data class Melding(
     val dossier: String? = null,
     val directeInzet: Boolean = false,
     var lat: Double? = null,
-    var lon: Double? = null
+    var lon: Double? = null,
+    /** Gemeente waarin de melding valt; ingevuld tijdens het geocoderen en
+     *  gebruikt om cijfers bij data.politie.nl op te halen. */
+    var gemeenteCode: String? = null,
+    var gemeenteNaam: String? = null
 ) {
     /** Best available textual key for geocoding, or null if nothing usable. */
     val geoQuery: String?
@@ -50,6 +55,8 @@ data class Melding(
      */
     val groupKey: String?
         get() = when {
+            // Politieberichten gaan over losse zaken; die nooit samenvoegen
+            type == ServiceType.POLITIEBERICHT -> null
             street != null && city != null -> "s|${norm(street)}|${norm(city)}"
             postcode != null -> "p|$postcode"
             city != null && aard != null -> "a|${norm(city)}|${norm(aard)}"

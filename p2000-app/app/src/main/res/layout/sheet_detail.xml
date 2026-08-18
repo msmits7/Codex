@@ -101,6 +101,16 @@
             android:layout_marginTop="6dp"
             android:textAppearance="?attr/textAppearanceBodyMedium" />
 
+        <!-- Verrijking achteraf met cijfers van data.politie.nl -->
+        <TextView
+            android:id="@+id/detailStats"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:visibility="gone"
+            android:textAppearance="?attr/textAppearanceBodySmall"
+            android:textColor="?android:attr/textColorSecondary" />
+
         <TextView
             android:id="@+id/detailSubHeader"
             android:layout_width="wrap_content"

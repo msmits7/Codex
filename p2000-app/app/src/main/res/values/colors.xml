@@ -5,5 +5,6 @@
     <color name="type_politie">#1565C0</color>
     <color name="type_trauma">#7B1FA2</color>
     <color name="type_water">#00838F</color>
+    <color name="type_politiebericht">#2E7D32</color>
     <color name="type_overig">#616161</color>
 </resources>

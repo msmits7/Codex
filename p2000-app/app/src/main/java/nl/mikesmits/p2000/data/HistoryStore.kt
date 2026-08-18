@@ -56,6 +56,8 @@ class HistoryStore(context: Context) {
         put("dia", m.directeInzet)
         put("lat", m.lat ?: JSONObject.NULL)
         put("lon", m.lon ?: JSONObject.NULL)
+        put("gemeenteCode", m.gemeenteCode ?: JSONObject.NULL)
+        put("gemeenteNaam", m.gemeenteNaam ?: JSONObject.NULL)
     }
 
     private fun fromJson(o: JSONObject): Melding = Melding(
@@ -78,6 +80,8 @@ class HistoryStore(context: Context) {
         dossier = o.optString("dossier").takeIf { it.isNotEmpty() && !o.isNull("dossier") },
         directeInzet = o.optBoolean("dia", false),
         lat = if (o.isNull("lat")) null else o.getDouble("lat"),
-        lon = if (o.isNull("lon")) null else o.getDouble("lon")
+        lon = if (o.isNull("lon")) null else o.getDouble("lon"),
+        gemeenteCode = o.optString("gemeenteCode").takeIf { it.isNotEmpty() && !o.isNull("gemeenteCode") },
+        gemeenteNaam = o.optString("gemeenteNaam").takeIf { it.isNotEmpty() && !o.isNull("gemeenteNaam") }
     )
 }

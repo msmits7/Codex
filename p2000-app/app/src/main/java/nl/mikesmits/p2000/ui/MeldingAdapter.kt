@@ -66,6 +66,7 @@ class MeldingAdapter(
             ServiceType.POLITIE -> R.color.type_politie
             ServiceType.TRAUMA -> R.color.type_trauma
             ServiceType.WATER -> R.color.type_water
+            ServiceType.POLITIEBERICHT -> R.color.type_politiebericht
             ServiceType.OVERIG -> R.color.type_overig
         }
 
@@ -75,6 +76,7 @@ class MeldingAdapter(
             ServiceType.POLITIE -> R.drawable.ic_type_politie
             ServiceType.TRAUMA -> R.drawable.ic_type_trauma
             ServiceType.WATER -> R.drawable.ic_type_water
+            ServiceType.POLITIEBERICHT -> R.drawable.ic_type_politiebericht
             ServiceType.OVERIG -> R.drawable.ic_type_overig
         }
     }
