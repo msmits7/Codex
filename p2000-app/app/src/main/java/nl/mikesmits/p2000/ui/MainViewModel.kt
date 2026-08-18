@@ -4,13 +4,16 @@ import android.app.Application
 import android.location.Location
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nl.mikesmits.p2000.PollService
 import nl.mikesmits.p2000.data.Melding
 import nl.mikesmits.p2000.data.MeldingGroep
@@ -54,15 +57,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val filter: StateFlow<FilterState> = _filter
     val status: StateFlow<String> = _status
 
-    /** Gefilterde meldingen, gebundeld per incident. */
+    /**
+     * Gefilterde meldingen, gebundeld per incident. Filteren en groeperen van
+     * duizenden meldingen gebeurt via flowOn buiten de main thread.
+     */
     val groups: StateFlow<List<MeldingGroep>> =
         combine(_all, _filter) { all, f -> groupMeldingen(applyFilter(all, f)) }
+            .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         viewModelScope.launch {
             repository.ensureLoaded()
-            _all.value = repository.current()
+            publishSnapshot()
             var lastFetch = 0L
             while (true) {
                 val now = System.currentTimeMillis()
@@ -78,11 +85,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         continue
                     }
                 }
-                _all.value = repository.current()
-                _status.value = "Live · ${_all.value.size} meldingen (24u)"
+                publishSnapshot()
                 delay(UI_REFRESH_MS)
             }
         }
+    }
+
+    /** Sorteren/snapshotten van de (grote) historie buiten de main thread. */
+    private suspend fun publishSnapshot() {
+        val snapshot = withContext(Dispatchers.Default) { repository.current() }
+        if (snapshot != _all.value) {
+            _all.value = snapshot
+        }
+        _status.value = "Live · ${snapshot.size} meldingen (24u)"
     }
 
     fun refreshNow() {
@@ -90,8 +105,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 repository.refresh()
                 repository.geocodeMissing(repository.current())
-                _all.value = repository.current()
-                _status.value = "Live · ${_all.value.size} meldingen (24u)"
+                publishSnapshot()
             } catch (_: Exception) {
                 _status.value = "Geen verbinding – opnieuw proberen…"
             }

@@ -50,6 +50,14 @@ class MainActivity : AppCompatActivity() {
     private val adapter = MeldingAdapter { groep -> showDetailSheet(groep) }
     private val markers = mutableListOf<Marker>()
     private val markerByGuid = mutableMapOf<String, Marker>()
+    private var lastMarkerSignature: List<String>? = null
+    private val markerDrawables = mutableMapOf<ServiceType, android.graphics.drawable.Drawable?>()
+
+    companion object {
+        // Cap zodat de kaart (altijd zichtbaar op foldables) nooit duizenden
+        // markers hoeft te tekenen; de lijst toont wel alles.
+        private const val MAX_MAP_MARKERS = 500
+    }
 
     /** True on foldables/tablets (sw600dp layout): list and map are shown side by side. */
     private val isDualPane: Boolean
@@ -101,6 +109,8 @@ class MainActivity : AppCompatActivity() {
         if (prefs.backgroundEnabled && !PollService.running) {
             startPollService()
         }
+
+        maybeShowCrashInfo()
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -273,10 +283,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateMapMarkers(list: List<MeldingGroep>) {
+        // Nieuwste eerst; alleen groepen met coördinaten, gemaximeerd
+        val toShow = list.filter { it.lat != null && it.lon != null }.take(MAX_MAP_MARKERS)
+        // Niets herbouwen als er effectief niets veranderd is (elke 5s ververst de UI)
+        val signature = toShow.map { "${it.primary.guid}|${it.meldingen.size}" }
+        if (signature == lastMarkerSignature) return
+        lastMarkerSignature = signature
+
         markers.forEach { binding.map.overlays.remove(it) }
         markers.clear()
         markerByGuid.clear()
-        for (g in list) {
+        for (g in toShow) {
             val lat = g.lat ?: continue
             val lon = g.lon ?: continue
             val m = g.primary
@@ -288,7 +305,9 @@ class MainActivity : AppCompatActivity() {
                 snippet = m.description.ifEmpty { m.rawTitle }
                 subDescription = m.locationLabel +
                     if (g.meldingen.size > 1) " · ${getString(R.string.group_count, g.meldingen.size)}" else ""
-                icon = ContextCompat.getDrawable(this@MainActivity, iconFor(m.type))
+                icon = markerDrawables.getOrPut(m.type) {
+                    ContextCompat.getDrawable(this@MainActivity, iconFor(m.type))
+                }
             }
             markers.add(marker)
             markerByGuid[m.guid] = marker
@@ -381,6 +400,27 @@ class MainActivity : AppCompatActivity() {
 
     private fun startPollService() {
         ContextCompat.startForegroundService(this, Intent(this, PollService::class.java))
+    }
+
+    /** Toon (eenmalig) de details van een eerdere crash, met een deel-knop. */
+    private fun maybeShowCrashInfo() {
+        val file = java.io.File(getExternalFilesDir(null) ?: filesDir, "last_crash.txt")
+        if (!file.exists()) return
+        val text = runCatching { file.readText() }.getOrNull()?.take(4000) ?: return
+        com.google.android.material.dialog.MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.crash_title)
+            .setMessage(text)
+            .setPositiveButton(R.string.crash_share) { _, _ ->
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_SUBJECT, "P2000 Live crashrapport")
+                    putExtra(Intent.EXTRA_TEXT, text)
+                }
+                runCatching { startActivity(Intent.createChooser(send, null)) }
+            }
+            .setNegativeButton(R.string.crash_dismiss, null)
+            .setOnDismissListener { file.delete() }
+            .show()
     }
 
     private fun radiusLabel(km: Int) =

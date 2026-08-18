@@ -41,4 +41,7 @@
     <string name="window_6h">6 uur</string>
     <string name="window_12h">12 uur</string>
     <string name="window_24h">24 uur</string>
+    <string name="crash_title">De app is eerder gecrasht</string>
+    <string name="crash_share">Rapport delen</string>
+    <string name="crash_dismiss">Sluiten</string>
 </resources>
