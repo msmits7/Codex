@@ -47,8 +47,18 @@ data class FilterState(
     fun withinRadius(melding: Melding): Boolean {
         if (!radiusActive) return true
         val here = myLocation ?: return true
-        val meters = melding.distanceMetersFrom(here.latitude, here.longitude) ?: return false
+        val meters = melding.distanceMetersFrom(here.latitude, here.longitude)
+        if (meters == null) {
+            // Nog geen positie opgezocht. Verse meldingen niet stilletjes laten
+            // verdwijnen: die worden zo gegeocodeerd en vallen daarna vanzelf
+            // binnen of buiten de straal.
+            return System.currentTimeMillis() - melding.time.time < WACHT_OP_POSITIE_MS
+        }
         return meters <= radiusKm * 1000.0
+    }
+
+    companion object {
+        private const val WACHT_OP_POSITIE_MS = 20 * 60 * 1000L
     }
 }
 

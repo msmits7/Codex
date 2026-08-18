@@ -6,7 +6,14 @@ import nl.mikesmits.p2000.data.Melding
 import nl.mikesmits.p2000.data.ServiceType
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import android.location.Location
+import nl.mikesmits.p2000.ui.FilterState
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import org.junit.Test
 import java.util.Date
 
@@ -14,6 +21,8 @@ import java.util.Date
  * Het straalfilter moet ook werken voor meldingen zonder exact adres, zoals
  * politieberichten die alleen een gemeente noemen.
  */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [34])
 class RadiusTest {
 
     /** Echte omhullende van gemeente Dronten (PDOK Locatieserver). */
@@ -66,5 +75,33 @@ class RadiusTest {
         assertEquals(52.37086, box.maxLat, 0.00001)
         assertEquals(5.62421, box.minLon, 0.00001)
         assertEquals(5.65255, box.maxLon, 0.00001)
+    }
+
+    @Test
+    fun nogNietGeocodeerdeVerseMeldingVerdwijntNiet() {
+        // Een melding die net binnen is en nog geen positie heeft, mag niet
+        // stilletjes wegvallen zodra het straalfilter aanstaat.
+        val vers = politiebericht(extent = null).copy(time = Date()).also {
+            it.lat = null; it.lon = null
+        }
+        assertNull(vers.distanceMetersFrom(52.0, 5.0))
+
+        val filter = FilterState(radiusKm = 20, myLocation = locatie(52.0, 5.0))
+        assertTrue("verse melding zonder positie hoort zichtbaar te blijven", filter.withinRadius(vers))
+    }
+
+    @Test
+    fun oudeMeldingZonderPositieValtWelBuitenDeStraal() {
+        val oud = politiebericht(extent = null).copy(
+            time = Date(System.currentTimeMillis() - 3 * 60 * 60 * 1000L)
+        ).also { it.lat = null; it.lon = null }
+
+        val filter = FilterState(radiusKm = 20, myLocation = locatie(52.0, 5.0))
+        assertFalse(filter.withinRadius(oud))
+    }
+
+    private fun locatie(lat: Double, lon: Double) = Location("test").apply {
+        latitude = lat
+        longitude = lon
     }
 }

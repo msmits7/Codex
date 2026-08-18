@@ -27,6 +27,7 @@
     <string name="detail_prio">Prioriteit: %s</string>
     <string name="detail_locatie">Locatie: %s</string>
     <string name="detail_regio">Regio: %s</string>
+    <string name="detail_bron">Bron: %s</string>
     <string name="detail_eenheden">Eenheden: %s</string>
     <string name="detail_dia">Directe inzet ambulance (DIA)</string>
     <string name="group_count">%d meldingen</string>

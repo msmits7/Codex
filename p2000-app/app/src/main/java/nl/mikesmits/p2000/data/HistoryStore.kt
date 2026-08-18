@@ -54,6 +54,7 @@ class HistoryStore(context: Context) {
         put("eenheden", JSONArray(m.eenheden))
         put("dossier", m.dossier ?: JSONObject.NULL)
         put("dia", m.directeInzet)
+        put("bron", m.bron)
         put("lat", m.lat ?: JSONObject.NULL)
         put("lon", m.lon ?: JSONObject.NULL)
         put("gemeenteCode", m.gemeenteCode ?: JSONObject.NULL)
@@ -81,6 +82,7 @@ class HistoryStore(context: Context) {
         } ?: emptyList(),
         dossier = o.optString("dossier").takeIf { it.isNotEmpty() && !o.isNull("dossier") },
         directeInzet = o.optBoolean("dia", false),
+        bron = o.optString("bron").ifEmpty { "alarmeringen.nl" },
         lat = if (o.isNull("lat")) null else o.getDouble("lat"),
         lon = if (o.isNull("lon")) null else o.getDouble("lon"),
         gemeenteCode = o.optString("gemeenteCode").takeIf { it.isNotEmpty() && !o.isNull("gemeenteCode") },

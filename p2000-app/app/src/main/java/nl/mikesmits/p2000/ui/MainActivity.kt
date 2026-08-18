@@ -272,6 +272,8 @@ class MainActivity : AppCompatActivity() {
         val regio = listOfNotNull(m.region, m.province).joinToString(" · ")
         sheetBinding.detailRegio.visibility = if (regio.isNotEmpty()) View.VISIBLE else View.GONE
         sheetBinding.detailRegio.text = getString(R.string.detail_regio, regio)
+        sheetBinding.detailBron.text =
+            getString(R.string.detail_bron, g.meldingen.map { it.bron }.distinct().joinToString(", "))
 
         // Eenheden en rit-/bonnummer (samengevoegd over alle gekoppelde meldingen)
         sheetBinding.detailEenheden.visibility = if (g.eenheden.isNotEmpty()) View.VISIBLE else View.GONE

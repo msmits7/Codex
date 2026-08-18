@@ -81,7 +81,8 @@ object PolitieFeedParser {
             aard = aard,
             eenheden = emptyList(),
             dossier = null,
-            directeInzet = false
+            directeInzet = false,
+            bron = "politie.nl"
         )
     }
 }

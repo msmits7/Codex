@@ -1,6 +1,9 @@
 package nl.mikesmits.p2000.data
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
@@ -79,7 +82,9 @@ class MeldingRepository(private val store: HistoryStore? = null) {
 
     private fun merge(fresh: List<Melding>) {
         for (m in fresh) {
-            val rit = m.ritNummer
+            // Ritnummers zijn per regio uniek, niet landelijk: regio meenemen
+            val regioSleutel = m.region ?: m.province ?: "nl"
+            val rit = m.ritNummer?.let { regioSleutel + "|" + it }
             if (rit != null) {
                 val eerder = ritIndex[rit]
                 // Zelfde rit binnen een uur = dezelfde inzet uit de andere bron
@@ -161,7 +166,8 @@ class MeldingRepository(private val store: HistoryStore? = null) {
                 aard = AardExtractor.aard(ruw.tekst, ""),
                 eenheden = AardExtractor.eenheden(ruw.tekst),
                 dossier = AardExtractor.dossier(ruw.tekst),
-                directeInzet = AardExtractor.directeInzet(ruw.tekst)
+                directeInzet = AardExtractor.directeInzet(ruw.tekst),
+                bron = "p2000-online.net"
             )
         }
     }
@@ -183,28 +189,37 @@ class MeldingRepository(private val store: HistoryStore? = null) {
      * gemeente kan rekenen; die worden dus ook nog eens langsgelopen als ze al
      * wel een positie hebben.
      */
-    suspend fun geocodeMissing(items: List<Melding>, limit: Int = 25): Boolean {
+    suspend fun geocodeMissing(items: List<Melding>, limit: Int = 120): Boolean = coroutineScope {
         var changed = false
+        // Nieuwste eerst, zodat verse meldingen als eerste een positie krijgen.
         val todo = items.filter {
             it.geoQuery != null &&
                 (it.lat == null || (it.extent == null && it.street == null && it.postcode == null))
         }.take(limit)
 
-        for (m in todo) {
-            val geo = PdokGeocoder.geocode(m.geoQuery!!) ?: continue
-            if (m.lat != geo.lat || m.lon != geo.lon || m.extent != geo.extent ||
-                m.gemeenteCode != geo.gemeenteCode
-            ) {
-                m.lat = geo.lat
-                m.lon = geo.lon
-                m.gemeenteCode = geo.gemeenteCode
-                m.gemeenteNaam = geo.gemeenteNaam
-                m.extent = geo.extent
-                changed = true
+        // In blokken parallel opzoeken; sequentieel duurde bij de hogere
+        // meldingsaantallen te lang, waardoor nieuwe meldingen lang zonder
+        // positie bleven staan.
+        for (blok in todo.chunked(8)) {
+            val uitkomsten = blok.map { m ->
+                async { m to PdokGeocoder.geocode(m.geoQuery!!) }
+            }.awaitAll()
+            for ((m, geo) in uitkomsten) {
+                if (geo == null) continue
+                if (m.lat != geo.lat || m.lon != geo.lon || m.extent != geo.extent ||
+                    m.gemeenteCode != geo.gemeenteCode
+                ) {
+                    m.lat = geo.lat
+                    m.lon = geo.lon
+                    m.gemeenteCode = geo.gemeenteCode
+                    m.gemeenteNaam = geo.gemeenteNaam
+                    m.extent = geo.extent
+                    changed = true
+                }
             }
         }
         if (changed) maybePersist(current())
-        return changed
+        changed
     }
 
     fun current(): List<Melding> = synchronized(byGuid) { pruneAndSort() }

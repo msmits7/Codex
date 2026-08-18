@@ -29,6 +29,8 @@ data class Melding(
     val eenheden: List<String> = emptyList(),
     val dossier: String? = null,
     val directeInzet: Boolean = false,
+    /** Waar deze melding vandaan komt; zichtbaar in het detailscherm. */
+    val bron: String = "alarmeringen.nl",
     var lat: Double? = null,
     var lon: Double? = null,
     /** Gemeente waarin de melding valt; ingevuld tijdens het geocoderen en

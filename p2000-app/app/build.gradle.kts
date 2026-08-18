@@ -11,8 +11,8 @@ android {
         applicationId = "nl.mikesmits.p2000"
         minSdk = 26
         targetSdk = 34
-        versionCode = 13
-        versionName = "2.2"
+        versionCode = 14
+        versionName = "2.3"
     }
 
     buildTypes {
