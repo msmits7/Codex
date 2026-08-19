@@ -60,6 +60,7 @@ class HistoryStore(context: Context) {
         put("gemeenteCode", m.gemeenteCode ?: JSONObject.NULL)
         put("gemeenteNaam", m.gemeenteNaam ?: JSONObject.NULL)
         put("exact", m.exacteLocatie)
+        put("grof", m.grofGebied)
         put("extent", m.extent?.let { JSONArray(listOf(it.minLat, it.maxLat, it.minLon, it.maxLon)) }
             ?: JSONObject.NULL)
     }
@@ -89,6 +90,7 @@ class HistoryStore(context: Context) {
         gemeenteCode = o.optString("gemeenteCode").takeIf { it.isNotEmpty() && !o.isNull("gemeenteCode") },
         gemeenteNaam = o.optString("gemeenteNaam").takeIf { it.isNotEmpty() && !o.isNull("gemeenteNaam") },
         exacteLocatie = o.optBoolean("exact", false),
+        grofGebied = o.optBoolean("grof", false),
         extent = o.optJSONArray("extent")?.takeIf { it.length() == 4 }?.let { a ->
             Bbox(a.getDouble(0), a.getDouble(1), a.getDouble(2), a.getDouble(3))
         }

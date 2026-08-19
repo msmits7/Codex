@@ -1,7 +1,5 @@
 package nl.mikesmits.p2000.data
 
-import java.util.Collections
-
 /**
  * P2000-pagerteksten korten plaatsnamen af ("SGRAVH" voor Den Haag). Zonder
  * die vertaling zet een geocoder de melding in de verkeerde plaats - PDOK
@@ -10,6 +8,8 @@ import java.util.Collections
  * anders geen plaats (en dus geen speld op de kaart) in plaats van een gok.
  */
 object PlaatsCodes {
+
+    private const val MAX_KANDIDATEN = 4
 
     /** Alleen codes die zijn terug te zien in de echte feeds. */
     private val vast = mapOf(
@@ -32,31 +32,44 @@ object PlaatsCodes {
         "PRIO", "RIT", "BON", "VWS", "DIA", "GRIP", "MKA", "OMS", "MOB"
     )
 
-    private val woonplaatsCache = Collections.synchronizedMap(HashMap<String, String?>())
-
     /**
      * Zoek de plaatsnaam bij een token uit de pagertekst.
      * @param isWoonplaats controleert bij de geocoder of het token zelf een
      *        bestaande woonplaats is (bijvoorbeeld "DELFT").
      */
-    suspend fun resolve(token: String, isWoonplaats: suspend (String) -> String?): String? {
+    suspend fun resolve(
+        token: String,
+        verwachteProvincie: String? = null,
+        isWoonplaats: suspend (String) -> Pair<String, String?>?
+    ): String? {
         val key = token.uppercase().trim('-', ':', ',', '.')
         if (key.length < 3 || key in stopwoorden) return null
         vast[key]?.let { return it }
-        if (woonplaatsCache.containsKey(key)) return woonplaatsCache[key]
-        val gevonden = isWoonplaats(key)
-        woonplaatsCache[key] = gevonden
-        return gevonden
+        val info = isWoonplaats(key) ?: return null
+        // Een straatnaam kan toevallig ook een dorp zijn. Als de gevonden plaats
+        // in een andere provincie ligt dan de regio van de melding, is het
+        // vrijwel zeker de verkeerde en laten we hem liever staan.
+        if (verwachteProvincie != null && info.second != null && info.second != verwachteProvincie) {
+            return null
+        }
+        return info.first
     }
 
-    /** Kandidaat-plaatscodes uit een pagertekst, meest waarschijnlijke eerst. */
+    /**
+     * Kandidaat-plaatsnamen uit een pagertekst, meest waarschijnlijke eerst.
+     *
+     * De landelijke monitorpagina schrijft plaatsen gewoon uit ("A2 Eindhoven
+     * Rit: 98623"), de regiopagina's gebruiken hoofdletterafkortingen
+     * ("Duinweg SGRAVH"). Beide vormen tellen dus mee. De plaats staat vrijwel
+     * altijd achteraan, dus we lopen van achter naar voren en kijken maar naar
+     * een handvol tokens - dat scheelt een berg opzoekwerk.
+     */
     fun kandidaten(text: String): List<String> {
-        // Hoofdlettertokens, achteraan beginnen: de plaats staat achter het adres.
-        return Regex("""\b([A-Z][A-Z'\-]{2,11})\b""").findAll(text)
+        val tokens = Regex("""\b([A-Z][A-Za-z'\-]{2,14})\b""").findAll(text)
             .map { it.groupValues[1] }
-            .filter { it !in stopwoorden && !it.all { c -> c.isDigit() } }
+            .filter { it.uppercase() !in stopwoorden }
             .toList()
-            .reversed()
+        return tokens.reversed().take(MAX_KANDIDATEN)
     }
 
     /** Straatdeel: alles vóór de plaatscode, ontdaan van prio en codes. */

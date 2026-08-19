@@ -70,7 +70,7 @@ class P2000OnlineTest {
 
     @Test
     fun volledigeplaatsnaamWordtHerkendViaDeGeocoder() = runBlocking {
-        val naam = PlaatsCodes.resolve("DELFT") { if (it == "DELFT") "Delft" else null }
+        val naam = PlaatsCodes.resolve("DELFT") { if (it == "DELFT") "Delft" to "Zuid-Holland" else null }
         assertEquals("Delft", naam)
     }
 

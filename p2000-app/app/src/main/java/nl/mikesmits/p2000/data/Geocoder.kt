@@ -89,18 +89,29 @@ object PdokGeocoder {
         box
     }
 
-    /** Bestaat deze naam als woonplaats? Geeft de officiële schrijfwijze terug. */
-    suspend fun woonplaatsNaam(naam: String): String? = withContext(Dispatchers.IO) {
-        try {
+    private val woonplaatsCache = Collections.synchronizedMap(HashMap<String, Pair<String, String?>?>())
+
+    /**
+     * Bestaat deze naam als woonplaats? Geeft de officiële schrijfwijze en de
+     * provincie terug, zodat de aanroeper kan controleren of de plaats past bij
+     * de regio van de melding.
+     */
+    suspend fun woonplaatsInfo(naam: String): Pair<String, String?>? = withContext(Dispatchers.IO) {
+        if (woonplaatsCache.containsKey(naam)) return@withContext woonplaatsCache[naam]
+        val info = try {
             val q = URLEncoder.encode(naam, "UTF-8")
-            val url = URL("$SEARCH?q=$q&rows=1&fq=type:woonplaats&fl=weergavenaam")
+            val url = URL("$SEARCH?q=$q&rows=1&fq=type:woonplaats&fl=weergavenaam,provincienaam")
             val doc = readJson(url)
                 ?.getJSONObject("response")?.getJSONArray("docs")
                 ?.takeIf { it.length() > 0 }?.getJSONObject(0)
-            doc?.optString("weergavenaam")?.substringBefore(",")?.takeIf { it.isNotEmpty() }
+            val plaats = doc?.optString("weergavenaam")?.substringBefore(",")?.takeIf { it.isNotEmpty() }
+            if (plaats == null) null
+            else plaats to doc.optString("provincienaam").takeIf { it.isNotEmpty() }
         } catch (_: Exception) {
             null
         }
+        woonplaatsCache[naam] = info
+        info
     }
 
     private fun fetch(query: String): GeoResult? {

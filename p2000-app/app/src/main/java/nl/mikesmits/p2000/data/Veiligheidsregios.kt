@@ -38,6 +38,49 @@ object Veiligheidsregios {
         "limburgzuid" to "Limburg"
     )
 
+    /**
+     * Grootste plaats per veiligheidsregio. De provinciegrens bleek als
+     * terugval veel te ruim: vanaf Den Haag ligt de rand van Noord-Holland op
+     * 19,7 km, waardoor meldingen uit Alkmaar en Hilversum binnen een straal
+     * van 25 km vielen. De gemeente van de hoofdplaats zit daar veel dichterbij
+     * de werkelijkheid.
+     */
+    private val naarHoofdplaats = mapOf(
+        "groningen" to "Groningen",
+        "fryslan" to "Leeuwarden",
+        "friesland" to "Leeuwarden",
+        "drenthe" to "Assen",
+        "ijsselland" to "Zwolle",
+        "twente" to "Enschede",
+        "noordenoostgelderland" to "Apeldoorn",
+        "gelderlandmidden" to "Arnhem",
+        "gelderlandzuid" to "Nijmegen",
+        "utrecht" to "Utrecht",
+        "flevoland" to "Lelystad",
+        "noordhollandnoord" to "Alkmaar",
+        "zaanstreekwaterland" to "Zaanstad",
+        "kennemerland" to "Haarlem",
+        "amsterdamamstelland" to "Amsterdam",
+        "gooienvechtstreek" to "Hilversum",
+        "haaglanden" to "Den Haag",
+        "hollandsmidden" to "Leiden",
+        "rotterdamrijnmond" to "Rotterdam",
+        "zuidhollandzuid" to "Dordrecht",
+        "zeeland" to "Middelburg",
+        "middenenwestbrabant" to "Tilburg",
+        "middenwestbrabant" to "Tilburg",
+        "brabantnoord" to "'s-Hertogenbosch",
+        "brabantzuidoost" to "Eindhoven",
+        "limburgnoord" to "Venlo",
+        "limburgzuid" to "Maastricht"
+    )
+
+    /** Hoofdplaats van een veiligheidsregio; null als de naam niet past. */
+    fun hoofdplaats(naam: String?): String? {
+        if (naam.isNullOrBlank()) return null
+        return naarHoofdplaats[naam.lowercase().filter { it.isLetter() }]
+    }
+
     /** Provincie bij een regio- of provincienaam; null als er niets past. */
     fun provincie(naam: String?): String? {
         if (naam.isNullOrBlank()) return null

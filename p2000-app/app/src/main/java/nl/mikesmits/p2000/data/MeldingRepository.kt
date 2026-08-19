@@ -108,6 +108,8 @@ class MeldingRepository(private val store: HistoryStore? = null) {
                 m.gemeenteCode = existing.gemeenteCode
                 m.gemeenteNaam = existing.gemeenteNaam
                 m.extent = existing.extent
+                m.exacteLocatie = existing.exacteLocatie
+                m.grofGebied = existing.grofGebied
             }
             byGuid[m.guid] = m
         }
@@ -154,9 +156,10 @@ class MeldingRepository(private val store: HistoryStore? = null) {
         }
 
         return P2000OnlineParser.parse(html).map { ruw ->
+            val verwachteProvincie = Veiligheidsregios.provincie(ruw.regio)
             val treffer: Pair<String, String>? = PlaatsCodes.kandidaten(ruw.tekst)
                 .firstNotNullOfOrNull { token ->
-                    PlaatsCodes.resolve(token) { PdokGeocoder.woonplaatsNaam(it) }
+                    PlaatsCodes.resolve(token, verwachteProvincie) { PdokGeocoder.woonplaatsInfo(it) }
                         ?.let { naam -> token to naam }
                 }
             val plaats = treffer?.second
@@ -215,25 +218,26 @@ class MeldingRepository(private val store: HistoryStore? = null) {
             for ((plaats, meldingen) in blok) {
                 val box = boxen[plaats] ?: continue
                 for (m in meldingen) {
-                    if (m.extent != box) {
+                    if (m.extent != box || m.grofGebied) {
                         m.extent = box
+                        m.grofGebied = false
                         changed = true
                     }
                 }
             }
         }
 
-        // Stap 1b: nog geen gebied? Dan de provincie van de veiligheidsregio.
-        // Grof, maar genoeg om te zien of iets uberhaupt in de buurt ligt.
+        // Stap 1b: geen plaats te herleiden? Dan de gemeente van de
+        // hoofdplaats van de veiligheidsregio als grove aanduiding.
         val zonderPlaats = items.filter { it.extent == null && it.lat == null }.take(limit)
-        val perProvincie = zonderPlaats.groupBy {
-            Veiligheidsregios.provincie(it.region) ?: Veiligheidsregios.provincie(it.province)
-        }.filterKeys { it != null }
-        for ((provincie, meldingen) in perProvincie) {
-            val box = PdokGeocoder.provincieExtent(provincie!!) ?: continue
+        val perRegio = zonderPlaats.groupBy { Veiligheidsregios.hoofdplaats(it.region) }
+            .filterKeys { it != null }
+        for ((hoofdplaats, meldingen) in perRegio) {
+            val box = PdokGeocoder.plaatsExtent(hoofdplaats!!) ?: continue
             for (m in meldingen) {
                 if (m.extent == null) {
                     m.extent = box
+                    m.grofGebied = true
                     changed = true
                 }
             }
@@ -252,7 +256,10 @@ class MeldingRepository(private val store: HistoryStore? = null) {
                 m.gemeenteCode = geo.gemeenteCode
                 m.gemeenteNaam = geo.gemeenteNaam
                 m.exacteLocatie = geo.exact
-                if (geo.extent != null) m.extent = geo.extent
+                if (geo.extent != null) {
+                    m.extent = geo.extent
+                    m.grofGebied = false
+                }
                 changed = true
             }
         }

@@ -229,7 +229,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         appendLine("  per type: " + alle.groupingBy { it.type.label }.eachCount()
             .entries.joinToString { "${it.key}=${it.value}" }.ifEmpty { "-" })
         appendLine("  exacte locatie: ${alle.count { it.exacteLocatie }}")
-        appendLine("  alleen gebied: ${alle.count { !it.exacteLocatie && it.extent != null }}")
+        appendLine("  op plaats: ${alle.count { !it.exacteLocatie && it.extent != null && !it.grofGebied }}")
+        appendLine("  alleen op regio: ${alle.count { it.grofGebied }}")
         appendLine("  locatie onbekend: ${alle.count { !it.exacteLocatie && it.extent == null && it.lat == null }}")
         appendLine()
 
@@ -244,7 +245,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             val soort = when {
                 m.exacteLocatie -> "adres"
-                m.extent != null -> "gebied"
+                m.grofGebied -> "regio"
+                m.extent != null -> "plaats"
                 else -> "geen"
             }
             val zichtbaar = if (f.withinRadius(m) && f.matchesType(m.type)) "TOON" else "weg "

@@ -39,6 +39,8 @@ data class Melding(
     var gemeenteNaam: String? = null,
     /** True zodra lat/lon van een adres of straat komen (en niet van een plaats). */
     var exacteLocatie: Boolean = false,
+    /** True als de omhullende van de regio komt en niet van de plaats zelf. */
+    var grofGebied: Boolean = false,
     /** Omhullende van de plaats/gemeente als er geen exact adres bekend is;
      *  daarmee telt een gebied mee zodra het deels binnen de straal ligt. */
     var extent: Bbox? = null
