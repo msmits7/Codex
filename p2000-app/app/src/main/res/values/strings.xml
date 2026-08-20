@@ -10,11 +10,12 @@
     <string name="filter_clear">Filters wissen</string>
     <string name="radius_off">Uit</string>
     <string name="radius_km">%d km</string>
-    <string name="nav_list">Meldingen</string>
+    <string name="nav_list">In de buurt</string>
     <string name="nav_map">Kaart</string>
-    <string name="nav_rss">RSS</string>
-    <string name="empty_list">Geen meldingen voor deze filters</string>
-    <string name="empty_rss">Nog geen politieberichten opgehaald.\nDe feeds worden elke 5 minuten ververst; zet het tijdfilter ruimer (bijv. 72 uur) om oudere berichten te zien.</string>
+    <string name="nav_alles">Alles</string>
+    <string name="empty_list">Geen meldingen binnen je straal.\nMeldingen zonder duidelijke locatie staan onder “Alles”.</string>
+    <string name="empty_alles">Geen meldingen voor deze filters.\nZet het tijdfilter ruimer om verder terug te kijken.</string>
+    <string name="alles_zoek_hint">Zoek in alle meldingen (plaats, straat, dienst, tekst…)</string>
     <string name="location_denied">Locatietoestemming geweigerd – straalfilter uitgeschakeld</string>
     <string name="location_unavailable">Locatie niet beschikbaar – zet locatie aan en probeer opnieuw</string>
     <string name="no_coordinates">Geen kaartpositie bekend voor deze melding</string>

@@ -49,7 +49,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     private val viewModel: MainViewModel by viewModels()
     private val adapter = MeldingAdapter { groep -> showDetailSheet(groep) }
-    private val rssAdapter = MeldingAdapter { groep -> showDetailSheet(groep) }
+    private val allesAdapter = MeldingAdapter { groep -> showDetailSheet(groep) }
     private val markers = mutableListOf<Marker>()
     private val markerByGuid = mutableMapOf<String, Marker>()
     private var lastMarkerSignature: List<String>? = null
@@ -94,7 +94,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupList()
-        setupRss()
+        setupAlles()
         setupMap()
         setupTypeChips()
         setupNavigation()
@@ -126,9 +126,9 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 launch {
-                    viewModel.rssItems.collect { list ->
-                        rssAdapter.submitList(list)
-                        binding.textEmptyRss.visibility =
+                    viewModel.allesGroups.collect { list ->
+                        allesAdapter.submitList(list)
+                        binding.textEmptyAlles.visibility =
                             if (list.isEmpty()) View.VISIBLE else View.GONE
                     }
                 }
@@ -151,9 +151,12 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupRss() {
-        binding.recyclerRss.layoutManager = LinearLayoutManager(this)
-        binding.recyclerRss.adapter = rssAdapter
+    private fun setupAlles() {
+        binding.recyclerAlles.layoutManager = LinearLayoutManager(this)
+        binding.recyclerAlles.adapter = allesAdapter
+        binding.inputZoekAlles.doAfterTextChanged {
+            viewModel.setZoekAlles(it?.toString() ?: "")
+        }
     }
 
     private fun setupMap() {
@@ -215,19 +218,19 @@ class MainActivity : AppCompatActivity() {
         binding.bottomNav.menu.findItem(R.id.nav_map).isVisible = !isDualPane
         binding.bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_map -> showPanes(list = false, map = true, rss = false)
-                R.id.nav_rss -> showPanes(list = false, map = false, rss = true)
-                else -> showPanes(list = true, map = isDualPane, rss = false)
+                R.id.nav_map -> showPanes(list = false, map = true, alles = false)
+                R.id.nav_alles -> showPanes(list = false, map = false, alles = true)
+                else -> showPanes(list = true, map = isDualPane, alles = false)
             }
             true
         }
-        showPanes(list = true, map = isDualPane, rss = false)
+        showPanes(list = true, map = isDualPane, alles = false)
     }
 
-    private fun showPanes(list: Boolean, map: Boolean, rss: Boolean) {
+    private fun showPanes(list: Boolean, map: Boolean, alles: Boolean) {
         binding.listContainer.visibility = if (list) View.VISIBLE else View.GONE
         binding.mapContainer.visibility = if (map) View.VISIBLE else View.GONE
-        binding.rssContainer.visibility = if (rss) View.VISIBLE else View.GONE
+        binding.allesContainer.visibility = if (alles) View.VISIBLE else View.GONE
     }
 
     private fun showDetailSheet(g: MeldingGroep) {

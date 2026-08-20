@@ -9,7 +9,7 @@
         android:icon="@drawable/ic_map"
         android:title="@string/nav_map" />
     <item
-        android:id="@+id/nav_rss"
+        android:id="@+id/nav_alles"
         android:icon="@drawable/ic_rss"
-        android:title="@string/nav_rss" />
+        android:title="@string/nav_alles" />
 </menu>

@@ -78,26 +78,17 @@ class RadiusTest {
     }
 
     @Test
-    fun nogNietGeocodeerdeVerseMeldingVerdwijntNiet() {
-        // Een melding die net binnen is en nog geen positie heeft, mag niet
-        // stilletjes wegvallen zodra het straalfilter aanstaat.
-        val vers = politiebericht(extent = null).copy(time = Date()).also {
+    fun meldingZonderPositieValtBuitenDeBuurtlijst() {
+        // Zolang er geen bruikbare locatie is, kan de afstand niet kloppen;
+        // zulke meldingen horen op het tabblad "Alles".
+        val zonder = politiebericht(extent = null).copy(time = Date()).also {
             it.lat = null; it.lon = null
         }
-        assertNull(vers.distanceMetersFrom(52.0, 5.0))
+        assertNull(zonder.distanceMetersFrom(52.0, 5.0))
 
         val filter = FilterState(radiusKm = 20, myLocation = locatie(52.0, 5.0))
-        assertTrue("verse melding zonder positie hoort zichtbaar te blijven", filter.withinRadius(vers))
-    }
-
-    @Test
-    fun oudeMeldingZonderPositieValtWelBuitenDeStraal() {
-        val oud = politiebericht(extent = null).copy(
-            time = Date(System.currentTimeMillis() - 3 * 60 * 60 * 1000L)
-        ).also { it.lat = null; it.lon = null }
-
-        val filter = FilterState(radiusKm = 20, myLocation = locatie(52.0, 5.0))
-        assertFalse(filter.withinRadius(oud))
+        assertFalse(filter.withinRadius(zonder))
+        assertFalse(filter.heeftDuidelijkeLocatie(zonder))
     }
 
     private fun locatie(lat: Double, lon: Double) = Location("test").apply {

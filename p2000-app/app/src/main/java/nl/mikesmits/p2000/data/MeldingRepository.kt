@@ -157,10 +157,20 @@ class MeldingRepository(private val store: HistoryStore? = null) {
 
         return P2000OnlineParser.parse(html).map { ruw ->
             val verwachteProvincie = Veiligheidsregios.provincie(ruw.regio)
-            val treffer: Pair<String, String>? = PlaatsCodes.kandidaten(ruw.tekst)
-                .firstNotNullOfOrNull { token ->
-                    PlaatsCodes.resolve(token, verwachteProvincie) { PdokGeocoder.woonplaatsInfo(it) }
-                        ?.let { naam -> token to naam }
+            val kandidaten = PlaatsCodes.kandidaten(ruw.tekst)
+            // Eerst een plaats in de eigen provincie; die is het waarschijnlijkst.
+            // Levert dat niets op, dan alsnog buiten de provincie kijken - een
+            // ambulance uit Rotterdam die naar Amsterdam rijdt is gewoon een
+            // melding in Amsterdam.
+            val treffer: Pair<String, String>? =
+                kandidaten.firstNotNullOfOrNull { token ->
+                    PlaatsCodes.zoek(token, verwachteProvincie, eisProvincie = true) {
+                        PdokGeocoder.woonplaatsInfo(it)
+                    }?.let { naam -> token to naam }
+                } ?: kandidaten.firstNotNullOfOrNull { token ->
+                    PlaatsCodes.zoek(token, verwachteProvincie, eisProvincie = false) {
+                        PdokGeocoder.woonplaatsInfo(it)
+                    }?.let { naam -> token to naam }
                 }
             val plaats = treffer?.second
             val straat = PlaatsCodes.straatUit(ruw.tekst, treffer?.first)

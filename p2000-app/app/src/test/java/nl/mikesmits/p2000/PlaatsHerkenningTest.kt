@@ -40,13 +40,21 @@ class PlaatsHerkenningTest {
     }
 
     @Test
-    fun eenPlaatsInEenAndereProvincieWordtVerworpen() = runBlocking {
-        // Straatnaam die toevallig ook een dorp is, maar ver van de regio:
-        // dan liever geen plaats dan een melding op 100 km afstand.
-        val gevonden = PlaatsCodes.resolve("Bergen", "Zuid-Holland") {
+    fun eersteRondeHoudtHetBinnenDeEigenProvincie() = runBlocking {
+        val gevonden = PlaatsCodes.zoek("Bergen", "Zuid-Holland", eisProvincie = true) {
             "Bergen" to "Limburg"
         }
         assertNull(gevonden)
+    }
+
+    @Test
+    fun tweedeRondeAccepteertOokEenPlaatsBuitenDeRegio() = runBlocking {
+        // Bijstand over regiogrenzen: een ambulance uit Rotterdam-Rijnmond die
+        // naar Amsterdam rijdt, is gewoon een melding in Amsterdam.
+        val gevonden = PlaatsCodes.zoek("Amsterdam", "Zuid-Holland", eisProvincie = false) {
+            "Amsterdam" to "Noord-Holland"
+        }
+        assertEquals("Amsterdam", gevonden)
     }
 
     @Test

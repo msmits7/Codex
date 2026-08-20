@@ -33,7 +33,9 @@ data class FilterState(
     val locationQuery: String = "",
     val radiusKm: Int = 0,              // 0 = radius filter off
     val windowMinutes: Int = 1440,      // hoe ver terugkijken; 1440 = volledige 24u-historie
-    val myLocation: Location? = null
+    val myLocation: Location? = null,
+    /** Vrij zoeken op het tabblad "Alles"; staat los van het locatiefilter. */
+    val zoekAlles: String = ""
 ) {
     val radiusActive: Boolean get() = radiusKm > 0 && myLocation != null
 
@@ -44,26 +46,36 @@ data class FilterState(
     fun matchesType(type: ServiceType): Boolean = types.isEmpty() || type in types
 
     /**
-     * Valt de melding binnen de ingestelde straal? Bij een melding zonder exact
-     * adres (politieberichten kennen alleen een plaats/gemeente) telt de afstand
-     * tot de rand van dat gebied, zodat de melding meedoet zodra de gemeente ook
-     * maar deels binnen de straal ligt.
+     * Is de locatie nauwkeurig genoeg om op afstand te filteren? Een melding die
+     * alleen op de regio te plaatsen is (of helemaal niet), hoort thuis op het
+     * tabblad "Alles" en niet in de lijst met meldingen in de buurt.
+     */
+    fun heeftDuidelijkeLocatie(melding: Melding): Boolean =
+        melding.exacteLocatie || (melding.extent != null && !melding.grofGebied)
+
+    /**
+     * Valt de melding binnen de ingestelde straal? Bij een plaats zonder exact
+     * adres telt de afstand tot de rand van die gemeente, zodat een melding
+     * meedoet zodra de gemeente ook maar deels binnen de straal ligt.
      */
     fun withinRadius(melding: Melding): Boolean {
         if (!radiusActive) return true
         val here = myLocation ?: return true
-        val meters = melding.distanceMetersFrom(here.latitude, here.longitude)
-        if (meters == null) {
-            // Er is nog niets bekend over waar dit is - geen plaats, geen
-            // positie. Even laten staan zodat een verse melding niet stilletjes
-            // verdwijnt, maar kort: zodra de plaats bekend is telt de afstand.
-            return System.currentTimeMillis() - melding.time.time < WACHT_OP_POSITIE_MS
-        }
+        if (!heeftDuidelijkeLocatie(melding)) return false
+        val meters = melding.distanceMetersFrom(here.latitude, here.longitude) ?: return false
         return meters <= radiusKm * 1000.0
     }
 
-    companion object {
-        private const val WACHT_OP_POSITIE_MS = 5 * 60 * 1000L
+    /** Vrije zoekterm toepassen op alles wat een melding aan tekst heeft. */
+    fun matchesZoek(melding: Melding): Boolean {
+        if (zoekAlles.isBlank()) return true
+        val hooiberg = listOfNotNull(
+            melding.rawTitle, melding.description, melding.city, melding.street,
+            melding.postcode, melding.region, melding.province, melding.aard,
+            melding.prio, melding.type.label, melding.bron, melding.dossier
+        ).joinToString(" ").lowercase()
+        return zoekAlles.lowercase().split(" ").filter { it.isNotBlank() }
+            .all { hooiberg.contains(it) }
     }
 }
 
@@ -101,19 +113,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    /** Losse stroom voor het RSS-tabblad: alleen politieberichten. */
-    val rssItems: StateFlow<List<MeldingGroep>> =
+    /**
+     * Tabblad "Alles": het hele land, inclusief meldingen zonder duidelijke
+     * locatie en de politieberichten. Wel het tijdfilter en de typekeuze, geen
+     * straal, plus de vrije zoekterm van dat tabblad.
+     */
+    val allesGroups: StateFlow<List<MeldingGroep>> =
         combine(_all, _filter) { all, f ->
             val cutoff = System.currentTimeMillis() - f.windowMinutes * 60_000L
-            all.asSequence()
-                .filter { it.type == ServiceType.POLITIEBERICHT && it.time.time >= cutoff }
-                .filter { m ->
-                    f.locationQuery.isEmpty() || listOfNotNull(m.city, m.rawTitle, m.description)
-                        .joinToString(" ").lowercase().contains(f.locationQuery.lowercase())
+            groupMeldingen(
+                all.filter { m ->
+                    m.time.time >= cutoff && f.matchesType(m.type) && f.matchesZoek(m)
                 }
-                .filter { f.withinRadius(it) }
-                .map { MeldingGroep(listOf(it)) }
-                .toList()
+            )
         }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -177,6 +189,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         prefs.filterTypes = emptySet()
     }
 
+    fun setZoekAlles(term: String) {
+        _filter.value = _filter.value.copy(zoekAlles = term.trim())
+    }
+
     fun setLocationQuery(query: String) {
         _filter.value = _filter.value.copy(locationQuery = query.trim())
         prefs.locationQuery = query.trim()
@@ -223,7 +239,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         appendLine("MELDINGEN")
         appendLine("  in geheugen: ${alle.size}")
-        appendLine("  na filter: ${groups.value.sumOf { it.meldingen.size }} in ${groups.value.size} incidenten")
+        appendLine("  in de buurt: ${groups.value.sumOf { it.meldingen.size }} in ${groups.value.size} incidenten")
+        appendLine("  op tabblad Alles: ${allesGroups.value.sumOf { it.meldingen.size }}")
         appendLine("  per bron: " + alle.groupingBy { it.bron }.eachCount()
             .entries.joinToString { "${it.key}=${it.value}" }.ifEmpty { "-" })
         appendLine("  per type: " + alle.groupingBy { it.type.label }.eachCount()
@@ -249,7 +266,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 m.extent != null -> "plaats"
                 else -> "geen"
             }
-            val zichtbaar = if (f.withinRadius(m) && f.matchesType(m.type)) "TOON" else "weg "
+            val zichtbaar = if (f.withinRadius(m) && f.matchesType(m.type)) "BUURT" else "alles"
             appendLine(
                 "  $zichtbaar ${SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(m.time)} " +
                     "${m.type.label} ${m.prio ?: "-"} | ${m.city ?: "?"} / ${m.region ?: "?"} " +

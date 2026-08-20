@@ -41,15 +41,29 @@ object PlaatsCodes {
         token: String,
         verwachteProvincie: String? = null,
         isWoonplaats: suspend (String) -> Pair<String, String?>?
+    ): String? = zoek(token, verwachteProvincie, eisProvincie = false, isWoonplaats = isWoonplaats)
+
+    /**
+     * Zoekt de plaats bij een token uit de pagertekst.
+     *
+     * @param eisProvincie alleen een plaats in [verwachteProvincie] accepteren.
+     *        Zo kan de aanroeper eerst binnen de eigen regio zoeken en pas
+     *        daarna daarbuiten - bij bijstand over regiogrenzen heen ligt de
+     *        plaats immers gewoon in een andere provincie.
+     */
+    suspend fun zoek(
+        token: String,
+        verwachteProvincie: String?,
+        eisProvincie: Boolean,
+        isWoonplaats: suspend (String) -> Pair<String, String?>?
     ): String? {
         val key = token.uppercase().trim('-', ':', ',', '.')
         if (key.length < 3 || key in stopwoorden) return null
         vast[key]?.let { return it }
         val info = isWoonplaats(key) ?: return null
-        // Een straatnaam kan toevallig ook een dorp zijn. Als de gevonden plaats
-        // in een andere provincie ligt dan de regio van de melding, is het
-        // vrijwel zeker de verkeerde en laten we hem liever staan.
-        if (verwachteProvincie != null && info.second != null && info.second != verwachteProvincie) {
+        if (eisProvincie && verwachteProvincie != null &&
+            info.second != null && info.second != verwachteProvincie
+        ) {
             return null
         }
         return info.first

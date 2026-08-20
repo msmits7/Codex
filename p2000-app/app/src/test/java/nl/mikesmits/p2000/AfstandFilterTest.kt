@@ -64,13 +64,26 @@ class AfstandFilterTest {
     }
 
     @Test
-    fun zonderEnigeLocatieBlijftEenVerseMeldingKortStaan() {
+    fun eenOnduidelijkeLocatieHoortNietInDeBuurtlijst() {
+        // Zonder bruikbare locatie valt er niets over de afstand te zeggen; die
+        // meldingen staan voortaan op het tabblad "Alles" in plaats van tussen
+        // de meldingen in de buurt.
         val onbekend = melding("Onbekend", null)
-        assertTrue(filter.withinRadius(onbekend))
+        assertFalse(filter.withinRadius(onbekend))
+        assertFalse(filter.heeftDuidelijkeLocatie(onbekend))
+    }
 
-        val oud = melding("Onbekend", null).copy(
-            time = Date(System.currentTimeMillis() - 30 * 60 * 1000L)
-        )
-        assertFalse(filter.withinRadius(oud))
+    @Test
+    fun alleenOpRegioGeplaatstTeltOokAlsOnduidelijk() {
+        val opRegio = melding("Ergens", zoetermeer).also { it.grofGebied = true }
+        assertFalse(filter.heeftDuidelijkeLocatie(opRegio))
+        assertFalse(filter.withinRadius(opRegio))
+    }
+
+    @Test
+    fun eenPlaatsInDeBuurtGeldtWelAlsDuidelijk() {
+        val opPlaats = melding("Zoetermeer", zoetermeer)
+        assertTrue(filter.heeftDuidelijkeLocatie(opPlaats))
+        assertTrue(filter.withinRadius(opPlaats))
     }
 }
