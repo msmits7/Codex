@@ -8,7 +8,10 @@
     <string name="filter_location_helper">Alleen meldingen die deze tekst bevatten</string>
     <string name="filter_radius_title">Straal vanaf mijn locatie</string>
     <string name="filter_clear">Filters wissen</string>
-    <string name="radius_off">Uit</string>
+    <string name="radius_off">Uit (geen afstandsfilter)</string>
+    <string name="filter_radius_helper">Sleep naar 0 om zonder afstandsfilter te werken</string>
+    <string name="filters_voor_buurt">Deze filters gelden voor “In de buurt” en de kaart</string>
+    <string name="filters_voor_alles">Deze filters gelden alleen voor “Alles”</string>
     <string name="radius_km">%d km</string>
     <string name="nav_list">In de buurt</string>
     <string name="nav_map">Kaart</string>

@@ -66,6 +66,16 @@ data class FilterState(
         return meters <= radiusKm * 1000.0
     }
 
+    /** Het locatie-tekstfilter uit het filterpaneel. */
+    fun matchesLocatie(melding: Melding): Boolean {
+        if (locationQuery.isEmpty()) return true
+        val hooiberg = listOfNotNull(
+            melding.city, melding.street, melding.region, melding.province,
+            melding.postcode, melding.rawTitle
+        ).joinToString(" ").lowercase()
+        return hooiberg.contains(locationQuery.lowercase())
+    }
+
     /** Vrije zoekterm toepassen op alles wat een melding aan tekst heeft. */
     fun matchesZoek(melding: Melding): Boolean {
         if (zoekAlles.isBlank()) return true
@@ -87,11 +97,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private const val UI_REFRESH_MS = 5_000L
     }
 
+    /** De twee schermen met een eigen filterset. */
+    enum class Scherm { BUURT, ALLES }
+
     private val repository = P2000Data.also { it.init(application) }.repository
     private val prefs = Prefs(application)
+    private val allesPrefs = Prefs(application, prefix = "alles_")
 
     private val _all = MutableStateFlow<List<Melding>>(emptyList())
-    private val _filter = MutableStateFlow(
+
+    private val _buurtFilter = MutableStateFlow(
         FilterState(
             types = prefs.filterTypes,
             locationQuery = prefs.locationQuery,
@@ -99,31 +114,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             windowMinutes = prefs.windowMinutes
         )
     )
+
+    /** Het Alles-scherm heeft eigen filters; standaard zonder afstandsfilter. */
+    private val _allesFilter = MutableStateFlow(
+        FilterState(
+            types = allesPrefs.filterTypes,
+            locationQuery = allesPrefs.locationQuery,
+            radiusKm = allesPrefs.radiusKm,
+            windowMinutes = allesPrefs.windowMinutes
+        )
+    )
+
+    private val _scherm = MutableStateFlow(Scherm.BUURT)
     private val _status = MutableStateFlow("Laden…")
 
-    val filter: StateFlow<FilterState> = _filter
+    val buurtFilter: StateFlow<FilterState> = _buurtFilter
+    val allesFilter: StateFlow<FilterState> = _allesFilter
+    val scherm: StateFlow<Scherm> = _scherm
     val status: StateFlow<String> = _status
+
+    /** De filterset van het scherm waar de gebruiker nu op zit. */
+    val filter: StateFlow<FilterState> =
+        combine(_scherm, _buurtFilter, _allesFilter) { scherm, buurt, alles ->
+            if (scherm == Scherm.ALLES) alles else buurt
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, _buurtFilter.value)
+
+    fun setScherm(nieuw: Scherm) {
+        _scherm.value = nieuw
+    }
+
+    private fun huidigeFilter() =
+        if (_scherm.value == Scherm.ALLES) _allesFilter else _buurtFilter
+
+    private fun huidigePrefs() =
+        if (_scherm.value == Scherm.ALLES) allesPrefs else prefs
 
     /**
      * Gefilterde meldingen, gebundeld per incident. Filteren en groeperen van
      * duizenden meldingen gebeurt via flowOn buiten de main thread.
      */
     val groups: StateFlow<List<MeldingGroep>> =
-        combine(_all, _filter) { all, f -> groupMeldingen(applyFilter(all, f)) }
+        combine(_all, _buurtFilter) { all, f -> groupMeldingen(applyFilter(all, f)) }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /**
      * Tabblad "Alles": het hele land, inclusief meldingen zonder duidelijke
-     * locatie en de politieberichten. Wel het tijdfilter en de typekeuze, geen
-     * straal, plus de vrije zoekterm van dat tabblad.
+     * locatie en de politieberichten. Heeft een eigen filterset - standaard
+     * zonder afstandsfilter - plus de vrije zoekterm van dat tabblad.
      */
     val allesGroups: StateFlow<List<MeldingGroep>> =
-        combine(_all, _filter) { all, f ->
+        combine(_all, _allesFilter) { all, f ->
             val cutoff = System.currentTimeMillis() - f.windowMinutes * 60_000L
             groupMeldingen(
                 all.filter { m ->
-                    m.time.time >= cutoff && f.matchesType(m.type) && f.matchesZoek(m)
+                    m.time.time >= cutoff && f.matchesType(m.type) && f.matchesZoek(m) &&
+                        f.withinRadius(m) && f.matchesLocatie(m)
                 }
             )
         }
@@ -177,39 +223,47 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleType(type: ServiceType, enabled: Boolean) {
-        val current = _filter.value.types.toMutableSet()
+        val stroom = huidigeFilter()
+        val current = stroom.value.types.toMutableSet()
         if (enabled) current.add(type) else current.remove(type)
-        _filter.value = _filter.value.copy(types = current)
-        prefs.filterTypes = current
+        stroom.value = stroom.value.copy(types = current)
+        huidigePrefs().filterTypes = current
     }
 
     /** Alle typefilters uitzetten (= alles tonen). */
     fun clearTypes() {
-        _filter.value = _filter.value.copy(types = emptySet())
-        prefs.filterTypes = emptySet()
+        val stroom = huidigeFilter()
+        stroom.value = stroom.value.copy(types = emptySet())
+        huidigePrefs().filterTypes = emptySet()
     }
 
+    /** Zoekterm hoort altijd bij het Alles-scherm. */
     fun setZoekAlles(term: String) {
-        _filter.value = _filter.value.copy(zoekAlles = term.trim())
+        _allesFilter.value = _allesFilter.value.copy(zoekAlles = term.trim())
     }
 
     fun setLocationQuery(query: String) {
-        _filter.value = _filter.value.copy(locationQuery = query.trim())
-        prefs.locationQuery = query.trim()
+        val stroom = huidigeFilter()
+        stroom.value = stroom.value.copy(locationQuery = query.trim())
+        huidigePrefs().locationQuery = query.trim()
     }
 
     fun setRadiusKm(km: Int) {
-        _filter.value = _filter.value.copy(radiusKm = km)
-        prefs.radiusKm = km
+        val stroom = huidigeFilter()
+        stroom.value = stroom.value.copy(radiusKm = km)
+        huidigePrefs().radiusKm = km
     }
 
     fun setWindowMinutes(minutes: Int) {
-        _filter.value = _filter.value.copy(windowMinutes = minutes)
-        prefs.windowMinutes = minutes
+        val stroom = huidigeFilter()
+        stroom.value = stroom.value.copy(windowMinutes = minutes)
+        huidigePrefs().windowMinutes = minutes
     }
 
+    /** De eigen locatie geldt voor beide schermen. */
     fun setMyLocation(location: Location?) {
-        _filter.value = _filter.value.copy(myLocation = location)
+        _buurtFilter.value = _buurtFilter.value.copy(myLocation = location)
+        _allesFilter.value = _allesFilter.value.copy(myLocation = location)
     }
 
     /**
@@ -217,7 +271,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      * niet door het filter komen - bedoeld om te kopiëren bij een probleem.
      */
     fun diagnoseRapport(): String = buildString {
-        val f = _filter.value
+        val f = _buurtFilter.value
         val alle = _all.value
         val klok = SimpleDateFormat("dd-MM-yyyy HH:mm:ss", Locale.getDefault())
 
@@ -226,7 +280,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         appendLine("tijd ${klok.format(Date())}")
         appendLine()
 
-        appendLine("FILTERS")
+        appendLine("FILTERS (scherm: ${_scherm.value})")
         appendLine("  types: " + if (f.types.isEmpty()) "alles" else f.types.joinToString { it.label })
         appendLine("  zoektekst: " + f.locationQuery.ifEmpty { "-" })
         appendLine("  straal: " + if (f.radiusKm == 0) "uit" else "${f.radiusKm} km")
@@ -235,6 +289,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             String.format(Locale.US, "%.4f, %.4f (±%.0f m)", it.latitude, it.longitude, it.accuracy)
         } ?: "onbekend"))
         appendLine("  achtergrondservice: " + if (PollService.running) "aan" else "uit")
+        appendLine("  --- Alles-scherm ---")
+        val a = _allesFilter.value
+        appendLine("  types: " + if (a.types.isEmpty()) "alles" else a.types.joinToString { it.label })
+        appendLine("  straal: " + if (a.radiusKm == 0) "uit" else "${a.radiusKm} km")
+        appendLine("  historie: ${a.windowMinutes} minuten")
+        appendLine("  zoekterm: " + a.zoekAlles.ifEmpty { "-" })
         appendLine()
 
         appendLine("MELDINGEN")
@@ -285,12 +345,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         return all.filter { m ->
             if (m.time.time < cutoff) return@filter false
             if (!f.matchesType(m.type)) return@filter false
-            if (f.locationQuery.isNotEmpty()) {
-                val q = f.locationQuery.lowercase()
-                val haystack = listOfNotNull(m.city, m.street, m.region, m.province, m.postcode, m.rawTitle)
-                    .joinToString(" ").lowercase()
-                if (!haystack.contains(q)) return@filter false
-            }
+            if (!f.matchesLocatie(m)) return@filter false
             if (!f.withinRadius(m)) return@filter false
             true
         }

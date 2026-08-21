@@ -52,6 +52,9 @@ class MainActivity : AppCompatActivity() {
     private val allesAdapter = MeldingAdapter { groep -> toonAllesDetail(groep) }
     /** Welke melding rechts in het detailpaneel staat (alleen in two-pane). */
     private var geselecteerdeGuid: String? = null
+    private val typeChips = mutableMapOf<ServiceType, Chip>()
+    /** Voorkomt dat het bijwerken van de chips zelf weer een filterwijziging is. */
+    private var chipsBijwerken = false
     private var laatstGetoond: MeldingGroep? = null
     private val markers = mutableListOf<Marker>()
     private val markerByGuid = mutableMapOf<String, Marker>()
@@ -148,6 +151,10 @@ class MainActivity : AppCompatActivity() {
                 launch {
                     viewModel.filter.collect { f ->
                         binding.textActiveFilter.text = buildFilterSummary(f)
+                        // Chips horen te tonen wat er op dít scherm gefilterd wordt
+                        chipsBijwerken = true
+                        for ((type, chip) in typeChips) chip.isChecked = type in f.types
+                        chipsBijwerken = false
                     }
                 }
             }
@@ -200,8 +207,11 @@ class MainActivity : AppCompatActivity() {
                 chipBackgroundColor = ContextCompat.getColorStateList(
                     this@MainActivity, R.color.chip_background
                 )
-                setOnCheckedChangeListener { _, checked -> viewModel.toggleType(type, checked) }
+                setOnCheckedChangeListener { _, checked ->
+                    if (!chipsBijwerken) viewModel.toggleType(type, checked)
+                }
             }
+            typeChips[type] = chip
             binding.chipGroupTypes.addView(chip)
         }
     }
@@ -230,9 +240,18 @@ class MainActivity : AppCompatActivity() {
         binding.bottomNav.menu.findItem(R.id.nav_map).isVisible = !isDualPane
         binding.bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
-                R.id.nav_map -> showPanes(list = false, map = true, alles = false)
-                R.id.nav_alles -> showPanes(list = false, map = false, alles = true)
-                else -> showPanes(list = true, map = isDualPane, alles = false)
+                R.id.nav_map -> {
+                    viewModel.setScherm(MainViewModel.Scherm.BUURT)
+                    showPanes(list = false, map = true, alles = false)
+                }
+                R.id.nav_alles -> {
+                    viewModel.setScherm(MainViewModel.Scherm.ALLES)
+                    showPanes(list = false, map = false, alles = true)
+                }
+                else -> {
+                    viewModel.setScherm(MainViewModel.Scherm.BUURT)
+                    showPanes(list = true, map = isDualPane, alles = false)
+                }
             }
             true
         }
@@ -433,6 +452,10 @@ class MainActivity : AppCompatActivity() {
         dialog.setContentView(sheetBinding.root)
 
         val f = viewModel.filter.value
+        val opAlles = viewModel.scherm.value == MainViewModel.Scherm.ALLES
+        sheetBinding.textFilterScherm.text = getString(
+            if (opAlles) R.string.filters_voor_alles else R.string.filters_voor_buurt
+        )
         sheetBinding.inputLocation.setText(f.locationQuery)
         sheetBinding.sliderRadius.value = f.radiusKm.toFloat()
         sheetBinding.textRadiusValue.text = radiusLabel(f.radiusKm)
@@ -499,9 +522,6 @@ class MainActivity : AppCompatActivity() {
 
         sheetBinding.buttonClearFilters.setOnClickListener {
             viewModel.clearTypes()
-            for (i in 0 until binding.chipGroupTypes.childCount) {
-                (binding.chipGroupTypes.getChildAt(i) as? Chip)?.isChecked = false
-            }
             viewModel.setLocationQuery("")
             viewModel.setRadiusKm(0)
             viewModel.setWindowMinutes(1440)
