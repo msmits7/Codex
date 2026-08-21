@@ -15,6 +15,7 @@
     <string name="nav_alles">Alles</string>
     <string name="empty_list">Geen meldingen binnen je straal.\nMeldingen zonder duidelijke locatie staan onder “Alles”.</string>
     <string name="empty_alles">Geen meldingen voor deze filters.\nZet het tijdfilter ruimer om verder terug te kijken.</string>
+    <string name="kies_melding">Kies een melding uit de lijst om de details te zien</string>
     <string name="alles_zoek_hint">Zoek in alle meldingen (plaats, straat, dienst, tekst…)</string>
     <string name="location_denied">Locatietoestemming geweigerd – straalfilter uitgeschakeld</string>
     <string name="location_unavailable">Locatie niet beschikbaar – zet locatie aan en probeer opnieuw</string>

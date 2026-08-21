@@ -124,57 +124,95 @@
         </FrameLayout>
     </LinearLayout>
 
+    <!-- Alles-tabblad in two-pane: meldingen links, details rechts -->
     <LinearLayout
         android:id="@+id/allesContainer"
         android:background="?attr/colorSurfaceContainerLow"
         android:layout_width="match_parent"
         android:layout_height="0dp"
-        android:orientation="vertical"
+        android:orientation="horizontal"
+        android:baselineAligned="false"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/header"
         app:layout_constraintBottom_toTopOf="@id/bottomNav">
 
-        <com.google.android.material.textfield.TextInputLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginHorizontal="12dp"
-            android:layout_marginTop="8dp"
-            android:hint="@string/alles_zoek_hint"
-            app:endIconMode="clear_text"
-            app:startIconDrawable="@drawable/ic_list"
-            style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense">
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="2"
+            android:orientation="vertical">
 
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/inputZoekAlles"
+            <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:imeOptions="actionSearch"
-                android:inputType="text"
-                android:maxLines="1" />
-        </com.google.android.material.textfield.TextInputLayout>
+                android:layout_marginHorizontal="12dp"
+                android:layout_marginTop="8dp"
+                android:hint="@string/alles_zoek_hint"
+                app:endIconMode="clear_text"
+                style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/inputZoekAlles"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:maxLines="1" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <androidx.recyclerview.widget.RecyclerView
+                    android:id="@+id/recyclerAlles"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:clipToPadding="false"
+                    android:paddingBottom="8dp" />
+
+                <TextView
+                    android:id="@+id/textEmptyAlles"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center"
+                    android:layout_margin="24dp"
+                    android:gravity="center"
+                    android:text="@string/empty_alles"
+                    android:textAppearance="?attr/textAppearanceBodyMedium"
+                    android:visibility="gone" />
+            </FrameLayout>
+        </LinearLayout>
+
+        <View
+            android:layout_width="1dp"
+            android:layout_height="match_parent"
+            android:background="?attr/colorOutlineVariant" />
 
         <FrameLayout
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1">
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="3"
+            android:background="?attr/colorSurface">
 
-            <androidx.recyclerview.widget.RecyclerView
-                android:id="@+id/recyclerAlles"
+            <include
+                android:id="@+id/allesDetail"
+                layout="@layout/sheet_detail"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:clipToPadding="false"
-                android:paddingBottom="8dp" />
+                android:visibility="gone" />
 
             <TextView
-                android:id="@+id/textEmptyAlles"
+                android:id="@+id/textKiesMelding"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_margin="24dp"
                 android:gravity="center"
-                android:text="@string/empty_alles"
+                android:text="@string/kies_melding"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
-                android:visibility="gone" />
+                android:textColor="?android:attr/textColorSecondary" />
         </FrameLayout>
     </LinearLayout>
 

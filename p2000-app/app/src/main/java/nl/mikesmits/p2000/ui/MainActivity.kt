@@ -49,7 +49,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var prefs: Prefs
     private val viewModel: MainViewModel by viewModels()
     private val adapter = MeldingAdapter { groep -> showDetailSheet(groep) }
-    private val allesAdapter = MeldingAdapter { groep -> showDetailSheet(groep) }
+    private val allesAdapter = MeldingAdapter { groep -> toonAllesDetail(groep) }
+    /** Welke melding rechts in het detailpaneel staat (alleen in two-pane). */
+    private var geselecteerdeGuid: String? = null
+    private var laatstGetoond: MeldingGroep? = null
     private val markers = mutableListOf<Marker>()
     private val markerByGuid = mutableMapOf<String, Marker>()
     private var lastMarkerSignature: List<String>? = null
@@ -130,6 +133,15 @@ class MainActivity : AppCompatActivity() {
                         allesAdapter.submitList(list)
                         binding.textEmptyAlles.visibility =
                             if (list.isEmpty()) View.VISIBLE else View.GONE
+                        // Het geopende detail meelaten lopen met nieuwe gegevens,
+                        // maar alleen opnieuw vullen als er echt iets veranderde.
+                        val paneel = binding.allesDetail ?: return@collect
+                        val id = geselecteerdeGuid ?: return@collect
+                        val actueel = list.firstOrNull { it.primary.guid == id }
+                        if (actueel != null && actueel != laatstGetoond) {
+                            laatstGetoond = actueel
+                            vulDetail(paneel, actueel, dialog = null)
+                        }
                     }
                 }
                 launch { viewModel.status.collect { binding.textStatus.text = it } }
@@ -233,12 +245,42 @@ class MainActivity : AppCompatActivity() {
         binding.allesContainer.visibility = if (alles) View.VISIBLE else View.GONE
     }
 
+    /**
+     * Op een opengeklapte foldable staat het detail rechts naast de lijst; op
+     * een telefoon schuift de bottom sheet omhoog.
+     */
+    private fun toonAllesDetail(g: MeldingGroep) {
+        val paneel = binding.allesDetail
+        if (paneel == null) {
+            showDetailSheet(g)
+            return
+        }
+        geselecteerdeGuid = g.primary.guid
+        laatstGetoond = g
+        binding.textKiesMelding?.visibility = View.GONE
+        paneel.root.visibility = View.VISIBLE
+        vulDetail(paneel, g, dialog = null)
+    }
+
+    /** Bottom sheet met de details van een incident (telefoon en kaart). */
     private fun showDetailSheet(g: MeldingGroep) {
-        val m = g.primary
         val sheetBinding = SheetDetailBinding.inflate(layoutInflater)
         val dialog = BottomSheetDialog(this)
         dialog.setContentView(sheetBinding.root)
+        vulDetail(sheetBinding, g, dialog)
+        dialog.show()
+    }
 
+    /**
+     * Vult een detailweergave. Wordt gebruikt door de bottom sheet én door het
+     * vaste detailpaneel naast de lijst op een opengeklapte foldable.
+     */
+    private fun vulDetail(
+        sheetBinding: SheetDetailBinding,
+        g: MeldingGroep,
+        dialog: BottomSheetDialog?
+    ) {
+        val m = g.primary
         val dateFormat = SimpleDateFormat("EEEE d MMMM yyyy · HH:mm:ss", Locale("nl", "NL"))
 
         sheetBinding.detailIcon.setImageResource(MeldingAdapter.iconFor(m.type))
@@ -298,7 +340,7 @@ class MainActivity : AppCompatActivity() {
         if (gemeenteCode != null && gemeenteNaam != null) {
             lifecycleScope.launch {
                 val stats = PolitieStats.forGemeente(gemeenteCode, gemeenteNaam, g.aard)
-                if (stats != null && dialog.isShowing) {
+                if (stats != null && (dialog?.isShowing ?: true)) {
                     val soort = if (stats.soortLabel != null && stats.soortAantal != null) {
                         getString(R.string.stats_soort, stats.soortAantal, stats.soortLabel)
                     } else ""
@@ -315,13 +357,12 @@ class MainActivity : AppCompatActivity() {
 
         sheetBinding.buttonShowOnMap.isEnabled = g.lat != null
         sheetBinding.buttonShowOnMap.setOnClickListener {
-            dialog.dismiss()
+            dialog?.dismiss()
             focusOnMap(g)
         }
         sheetBinding.buttonOpenBrowser.setOnClickListener {
             runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(m.link))) }
         }
-        dialog.show()
     }
 
     private fun focusOnMap(g: MeldingGroep) {
