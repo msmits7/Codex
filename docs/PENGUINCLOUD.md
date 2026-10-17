@@ -94,7 +94,7 @@ tradebot. Deze sessie richt alleen de vastlegging naar PenguinCloud in.
 
 | Datum | Wat | Commit / PR |
 | --- | --- | --- |
-| 2026-10-17 | PenguinCloud-vastlegging ingericht: `docs/PENGUINCLOUD.md`, sectie in `CLAUDE.md`, `.mcp.json`, Stop-hook en hookscript. Projectnotitie aangemaakt in `Projecten/Codex/Projectlogboek.md` via de MCP. | branch `ccr-562b4802-km70t1` (commit/PR volgt na push) |
+| 2026-10-17 | PenguinCloud-vastlegging ingericht: `docs/PENGUINCLOUD.md`, sectie in `CLAUDE.md`, `.mcp.json`, Stop-hook en hookscript. Projectnotitie aangemaakt in `Projecten/Codex/Projectlogboek.md` via de MCP. | `38356cd`, PR #1 (open, base `claude/android-p2000-app-lhf6rz`) |
 
 Eerdere geschiedenis (samengevat uit `git log`, niet uit PenguinCloud):
 
@@ -112,8 +112,10 @@ Eerdere geschiedenis (samengevat uit `git log`, niet uit PenguinCloud):
 - `vault_batch_read` van `Agents/Globale instructies.md`, `Werkwijze.md`,
   `Agents/Claude.md`: **geslaagd** (`found: 3, missing: 0`).
 - `vault_list Projecten`: **geslaagd**; `Projecten/Codex/` bestond nog niet.
-- Schrijftest: zie wijzigingslog (`brain_create` van
-  `Projecten/Codex/Projectlogboek.md`); resultaat staat in de PR-beschrijving.
+- Schrijftest: `brain_create` van `Projecten/Codex/Projectlogboek.md`:
+  **geslaagd** (`created: true`, 2353 bytes). Teruggelezen met
+  `brain_read_revision`: inhoud klopt, SHA-256
+  `d24b86f3ade6ae3e16175646340762daffd625a2eb6c3383a951f6c09d5487c6`.
 - Niet getest: `.mcp.json` in de lokale Claude Code-CLI (OAuth-login op een
   eigen machine is in deze sessie niet mogelijk).
 
