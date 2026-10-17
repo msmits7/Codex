@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "penguincloud": {
+      "type": "http",
+      "url": "https://mcp.penguincloud.nl/mcp"
+    }
+  }
+}
